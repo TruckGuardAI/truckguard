@@ -1,0 +1,66 @@
+/**
+ * TruckGuard - Bluetooth Configuration Template
+ * Adicionar ao app.json após instalar react-native-ble-plx
+ */
+
+{
+  "expo": {
+    "name": "TruckGuard",
+    "slug": "truckguard",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "truckguard",
+    "userInterfaceStyle": "automatic",
+    
+    // ========================================
+    // ADICIONAR: Plugins Bluetooth
+    // ========================================
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["peripheral"],
+          "bluetoothAlwaysUsageDescription": "TruckGuard precisa de Bluetooth para conectar ao ESP32 de segurança e receber alertas em tempo real.",
+          "bluetoothPeripheralUsageDescription": "TruckGuard precisa de Bluetooth para detectar e comunicar com o dispositivo ESP32."
+        }
+      ]
+    ],
+
+    "android": {
+      "package": "com.truckguard.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#06090D"
+      },
+      
+      // ========================================
+      // ADICIONAR: Permissões Bluetooth Android
+      // ========================================
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
+    },
+
+    "ios": {
+      "bundleIdentifier": "com.truckguard.app",
+      "buildNumber": "1.0.0",
+      "supportsTablet": false,
+      
+      // ========================================
+      // ADICIONAR: Permissões Bluetooth iOS
+      // ========================================
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "TruckGuard precisa de Bluetooth para conectar ao ESP32 de segurança e receber alertas em tempo real.",
+        "NSBluetoothPeripheralUsageDescription": "TruckGuard precisa de Bluetooth para detectar e comunicar com o dispositivo ESP32."
+      }
+    }
+  }
+}
