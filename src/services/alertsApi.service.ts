@@ -113,7 +113,7 @@ function activeAlerts(
   return alerts.filter(
     (item) =>
       !item.resolved &&
-      item.negativeVotes < 5
+      (item.negativeVotes ?? 0) < 5
   );
 }
 

@@ -1,16 +1,15 @@
-import React, { useRef } from 'react';
+import React from 'react';
 
 import {
   Button,
   View,
   Text,
   StyleSheet,
-  Pressable,
-  Animated,
   Platform,
 } from 'react-native';
 
 import { alertsApiService } from '../../src/services/alertsApi.service';
+import { navigationService } from '../../src/services/navigation.service';
 
 import type {
   Alert,
@@ -60,72 +59,12 @@ function formatDistance(distance: number): string {
   return `${distance.toFixed(1)}km`;
 }
 
-type ActionButtonProps = {
-  label: string;
-  emoji: string;
-  onPress: () => void;
-  variant: 'confirm' | 'resolve' | 'details';
-  disabled?: boolean;
-};
-
-function ActionButton({
-  label,
-  emoji,
-  onPress,
-  variant,
-  disabled = false,
-}: ActionButtonProps): React.ReactElement {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const animatePress = (): void => {
-    Animated.sequence([
-      Animated.timing(scale, {
-        toValue: 0.92,
-        duration: 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scale, {
-        toValue: 1,
-        duration: 120,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handlePress = (): void => {
-    if (disabled) {
-      return;
-    }
-
-    animatePress();
-    onPress();
-  };
-
-  return (
-    <Pressable
-      onPress={handlePress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.actionButton,
-        styles[`action_${variant}`],
-        pressed && styles.actionPressed,
-        disabled && styles.actionDisabled,
-      ]}
-    >
-      <Animated.View style={[styles.actionInner, { transform: [{ scale }] }]}>
-        <Text style={styles.actionEmoji}>{emoji}</Text>
-        <Text style={styles.actionLabel}>{label}</Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 export default function AlertCard({
   alert,
   showAheadDistance = false,
-  onConfirm,
-  onResolve,
-  onDetails,
+  onConfirm: _onConfirm,
+  onResolve: _onResolve,
+  onDetails: _onDetails,
 }: Props): React.ReactElement | null {
   if (!alert) {
     return null;
@@ -176,47 +115,45 @@ export default function AlertCard({
         <Text style={styles.subtitle}>{alert.title}</Text>
       )}
 
-      <View style={styles.actions}>
-        <ActionButton
-          label="Confirmar"
-          emoji="👍"
-          onPress={onConfirm}
-          variant="confirm"
-          disabled={isResolved}
-        />
-        <ActionButton
-          label="Resolvido"
-          emoji="❌"
-          onPress={onResolve}
-          variant="resolve"
-          disabled={isResolved}
-        />
-        <ActionButton
-          label="Detalhes"
-          emoji="ℹ️"
-          onPress={onDetails}
-          variant="details"
-        />
-      </View>
-
       <View style={styles.voteActions}>
         <Button
-          title="👍 Confirmar"
-          onPress={() =>
+          title="👍 CONFIRMAR"
+          onPress={() => {
             alertsApiService.voteAlert(
               alert.id,
               true,
-            )
-          }
+            );
+          }}
         />
         <Button
-          title="👎 Não existe"
-          onPress={() =>
+          title="👎 NÃO EXISTE"
+          onPress={() => {
             alertsApiService.voteAlert(
               alert.id,
               false,
-            )
-          }
+            );
+          }}
+        />
+      </View>
+
+      <View style={styles.navigationActions}>
+        <Button
+          title="🗺 GOOGLE MAPS"
+          onPress={() => {
+            navigationService.openGoogleMaps(
+              alert.latitude,
+              alert.longitude,
+            );
+          }}
+        />
+        <Button
+          title="🗺 WAZE"
+          onPress={() => {
+            navigationService.openWaze(
+              alert.latitude,
+              alert.longitude,
+            );
+          }}
         />
       </View>
     </View>
@@ -288,62 +225,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
-  actions: {
+  voteActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 14,
     gap: 8,
   },
 
-  voteActions: {
+  navigationActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 10,
     gap: 8,
-  },
-
-  actionButton: {
-    flex: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-
-  action_confirm: {
-    backgroundColor: '#1d4ed8',
-  },
-
-  action_resolve: {
-    backgroundColor: '#b91c1c',
-  },
-
-  action_details: {
-    backgroundColor: '#334155',
-  },
-
-  actionPressed: {
-    opacity: 0.88,
-  },
-
-  actionDisabled: {
-    opacity: 0.45,
-  },
-
-  actionInner: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-  },
-
-  actionEmoji: {
-    fontSize: 18,
-    marginBottom: 4,
-  },
-
-  actionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#f8fafc',
-    textAlign: 'center',
   },
 });

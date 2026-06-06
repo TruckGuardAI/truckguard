@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 
 import RadarMap from '../components/radar/RadarMap';
+import { useAlertProximity } from '../hooks/useAlertProximity';
 import { useRadarAlerts } from '../hooks/useRadarAlerts';
 
 import { alertsApiService } from '../services/alertsApi.service';
@@ -55,6 +56,12 @@ export default function RadarScreen() {
     userLocation,
     locationReady,
   } = useRadarAlerts(rawAlerts);
+
+  useAlertProximity(
+    alerts,
+    userLocation,
+    locationReady,
+  );
 
   console.log(
     'GPS:',

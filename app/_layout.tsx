@@ -1,4 +1,6 @@
-import React from 'react';
+import React, {
+  useEffect,
+} from 'react';
 
 import { Stack } from 'expo-router';
 
@@ -14,7 +16,15 @@ import {
   AuthProvider,
 } from '../src/context/AuthContext';
 
+import {
+  notificationsService,
+} from '../src/services/notifications.service';
+
 export default function RootLayout() {
+
+  useEffect(() => {
+    void notificationsService.initialize();
+  }, []);
 
   return (
 

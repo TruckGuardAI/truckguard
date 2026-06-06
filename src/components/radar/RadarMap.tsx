@@ -1,7 +1,17 @@
-import React, { useMemo } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
+
+import AlertCard from '../../../components/radar/AlertCard';
+
+import { alertsApiService } from '../../services/alertsApi.service';
+import { findAlertById } from '../../utils/alertRadar.utils';
 
 import type { Alert } from '../../types/alert.types';
 
@@ -136,17 +146,26 @@ body,
           return;
         }
 
-        L.marker([
-          alert.latitude,
-          alert.longitude,
-        ])
+        L.circleMarker(
+          [alert.latitude, alert.longitude],
+          {
+            radius: 8,
+            color: '#ef4444',
+            fillColor: '#ef4444',
+            fillOpacity: 0.9,
+            weight: 2,
+          }
+        )
           .addTo(map)
           .bindPopup(
             '<b>' +
               alert.title +
             '</b><br/>' +
             alert.type
-          );
+          )
+          .on('click', function () {
+            post('ALERT_SELECT:' + alert.id);
+          });
       });
 
       setTimeout(function () {
@@ -194,6 +213,25 @@ export default function RadarMap({
   zoom = 13,
   alerts = [],
 }: RadarMapProps) {
+  const [selectedAlert, setSelectedAlert] =
+    useState<Alert | null>(null);
+
+  useEffect(() => {
+    if (!selectedAlert) {
+      return;
+    }
+
+    const updatedAlert = findAlertById(
+      alerts,
+      selectedAlert.id
+    );
+
+    if (updatedAlert) {
+      setSelectedAlert(updatedAlert);
+    } else {
+      setSelectedAlert(null);
+    }
+  }, [alerts, selectedAlert]);
 
   const alertsJson = JSON.stringify(
     alerts.map((alert) => ({
@@ -221,14 +259,29 @@ export default function RadarMap({
     ]
   );
 
-  function handleMessage(
-    event: WebViewMessageEvent
-  ) {
-    console.log(
-      'RADAR_MAP:',
-      event.nativeEvent.data
-    );
-  }
+  const handleMessage = useCallback(
+    (event: WebViewMessageEvent) => {
+      const message = event.nativeEvent.data;
+
+      console.log('RADAR_MAP:', message);
+
+      if (message.startsWith('ALERT_SELECT:')) {
+        const alertId = message.slice(
+          'ALERT_SELECT:'.length
+        );
+
+        const alert = findAlertById(
+          alerts,
+          alertId
+        );
+
+        if (alert) {
+          setSelectedAlert(alert);
+        }
+      }
+    },
+    [alerts]
+  );
 
   return (
     <View style={styles.container}>
@@ -244,6 +297,46 @@ export default function RadarMap({
         mixedContentMode="always"
         onMessage={handleMessage}
       />
+
+      {selectedAlert && (
+        <View style={styles.alertOverlay}>
+          <AlertCard
+            alert={selectedAlert}
+            showAheadDistance={false}
+            onConfirm={async () => {
+              try {
+                await alertsApiService.confirmAlert(
+                  selectedAlert.id
+                );
+              } catch (error) {
+                console.error(
+                  'Erro ao confirmar alerta:',
+                  error
+                );
+              }
+            }}
+            onResolve={async () => {
+              try {
+                await alertsApiService.resolveAlert(
+                  selectedAlert.id
+                );
+                setSelectedAlert(null);
+              } catch (error) {
+                console.error(
+                  'Erro ao resolver alerta:',
+                  error
+                );
+              }
+            }}
+            onDetails={() => {
+              console.log(
+                'Detalhes alerta:',
+                selectedAlert
+              );
+            }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -257,5 +350,14 @@ const styles = StyleSheet.create({
   webview: {
     flex: 1,
     backgroundColor: '#020617',
+  },
+
+  alertOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
 });
