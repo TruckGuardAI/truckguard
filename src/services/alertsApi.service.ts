@@ -19,6 +19,8 @@ import {
   type PendingMutation,
 } from './alertsCache.service';
 
+import { deviceIdService } from './deviceId.service';
+
 export type { Alert, AlertType, CreateAlertInput, AlertsConnectionStatus };
 
 export type ToastKind = 'created' | 'confirmed' | 'resolved';
@@ -47,6 +49,7 @@ type SubscribeOptions = {
 
 const DEFAULT_TYPE: AlertType = 'fuel';
 const TABLE = 'alerts';
+const VOTES_TABLE = 'alert_votes';
 
 function isAlertType(value: unknown): value is AlertType {
   return (
@@ -423,6 +426,28 @@ class AlertsApiService {
     }
 
     try {
+      const deviceId =
+        await deviceIdService.getDeviceId();
+
+      const { error: voteInsertError } =
+        await supabase
+          .from(VOTES_TABLE)
+          .insert({
+            alert_id: alertId,
+            device_id: deviceId,
+            vote_type: positive
+              ? 'positive'
+              : 'negative',
+          });
+
+      if (voteInsertError) {
+        if (voteInsertError.code === '23505') {
+          return false;
+        }
+
+        throw voteInsertError;
+      }
+
       const { data, error } = await supabase
         .from(TABLE)
         .select('positive_votes, negative_votes')
