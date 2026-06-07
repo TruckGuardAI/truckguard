@@ -2,9 +2,27 @@ import type { Alert, AlertAlongRoute } from '../types/alert.types';
 
 import type {
   CalculatedRoute,
+  PlannerRouteResult,
   RouteCoordinate,
   RouteEndpoint,
 } from '../types/route.types';
+
+import {
+  getOpenRouteConfig,
+  logOpenRouteConfig,
+  OPENROUTE_DIRECTIONS_URL,
+  OpenRoutePlannerError,
+} from './openRoute.config';
+
+import {
+  isTlsCertificateError,
+  TLS_CERTIFICATE_ERROR_CODE,
+} from '../utils/tlsError.utils';
+
+import {
+  buildRouteCacheKey,
+  routeCacheService,
+} from './routeCache.service';
 
 import { DEFAULT_TRIP } from '../types/route.types';
 
@@ -16,9 +34,6 @@ import {
 } from '../utils/routeGeometry.utils';
 
 import type { UserCoordinates } from './location.service';
-
-const OPENROUTE_URL =
-  'https://api.openrouteservice.org/v2/directions/driving-car/geojson';
 
 const GOOGLE_DIRECTIONS_URL =
   'https://maps.googleapis.com/maps/api/directions/json';
@@ -46,6 +61,97 @@ class RouteService {
     destinationLng: number,
   ): string {
     return `${originLat},${originLng}->${destinationLat},${destinationLng}`;
+  }
+
+  async calculatePlannerRoute(
+    originLat: number,
+    originLng: number,
+    destinationLat: number,
+    destinationLng: number,
+    originName: string,
+    destinationName: string,
+  ): Promise<PlannerRouteResult> {
+    console.log('LOG_ROUTE_START', {
+      origem: originName,
+      destino: destinationName,
+    });
+
+    const config = logOpenRouteConfig(
+      OPENROUTE_DIRECTIONS_URL,
+    );
+
+    if (!config.hasApiKey) {
+      console.log('LOG_OPENROUTE_ERROR', {
+        kind: 'directions',
+        url: OPENROUTE_DIRECTIONS_URL,
+        keyPrefix: null,
+        status: null,
+        body: null,
+        reason: 'missing_api_key',
+        envVar: 'EXPO_PUBLIC_OPENROUTE_API_KEY',
+        runtimeLoaded: config.runtimeLoaded,
+      });
+
+      throw new OpenRoutePlannerError(
+        'OPENROUTE_API_NOT_CONFIGURED',
+        'OpenRoute API key não configurada no runtime Expo',
+      );
+    }
+
+    const origin: RouteEndpoint = {
+      name: originName,
+      latitude: originLat,
+      longitude: originLng,
+    };
+
+    const destination: RouteEndpoint = {
+      name: destinationName,
+      latitude: destinationLat,
+      longitude: destinationLng,
+    };
+
+    const coordinates =
+      await this.fetchOpenRouteDirections(
+        originLat,
+        originLng,
+        destinationLat,
+        destinationLng,
+      );
+
+    const route: CalculatedRoute = {
+      coordinates,
+      distanceKm: totalRouteLengthKm(
+        coordinates,
+      ),
+      origin,
+      destination,
+      source: 'openroute',
+    };
+
+    const routeKey = this.buildRouteKey(
+      originLat,
+      originLng,
+      destinationLat,
+      destinationLng,
+    );
+
+    this.cachedRoute = route;
+    this.cachedRouteKey = routeKey;
+
+    console.log('LOG_ROUTE_SUCCESS', {
+      origem: originName,
+      destino: destinationName,
+      distanciaKm: Number(
+        route.distanceKm.toFixed(2),
+      ),
+      pontos: coordinates.length,
+      source: 'openroute',
+    });
+
+    return {
+      route,
+      source: 'openroute',
+    };
   }
 
   async calculateRoute(
@@ -149,42 +255,161 @@ class RouteService {
     return fallbackRoute;
   }
 
-  private async fetchOpenRoute(
+  private async fetchOpenRouteDirections(
     originLat: number,
     originLng: number,
     destinationLat: number,
     destinationLng: number,
-  ): Promise<RouteCoordinate[] | null> {
-    const apiKey =
-      process.env.EXPO_PUBLIC_OPENROUTE_API_KEY ?? '';
+  ): Promise<RouteCoordinate[]> {
+    const cacheKey = buildRouteCacheKey(
+      originLat,
+      originLng,
+      destinationLat,
+      destinationLng,
+    );
 
-    if (!apiKey) {
-      return null;
+    const cachedEntry =
+      await routeCacheService.get(
+        originLat,
+        originLng,
+        destinationLat,
+        destinationLng,
+      );
+
+    if (cachedEntry) {
+      console.log('LOG_ROUTE_CACHE_HIT', {
+        cacheKey,
+        points: cachedEntry.coordinates.length,
+        distanceKm: Number(
+          cachedEntry.distanceKm.toFixed(2),
+        ),
+        source: cachedEntry.source,
+        createdAt: cachedEntry.createdAt,
+        expiresAt: cachedEntry.expiresAt,
+      });
+
+      return cachedEntry.coordinates;
     }
 
-    const response = await fetch(OPENROUTE_URL, {
+    console.log('LOG_ROUTE_CACHE_MISS', {
+      cacheKey,
+      originLat,
+      originLng,
+      destinationLat,
+      destinationLng,
+    });
+
+    const { apiKey, hasApiKey, keyPrefix } =
+      getOpenRouteConfig();
+
+    if (!hasApiKey) {
+      throw new OpenRoutePlannerError(
+        'OPENROUTE_API_NOT_CONFIGURED',
+        'OpenRoute API key não configurada',
+      );
+    }
+
+    const requestBody = {
+      coordinates: [
+        [originLng, originLat],
+        [destinationLng, destinationLat],
+      ],
+    };
+
+    console.log('LOG_OPENROUTE_REQUEST', {
+      kind: 'directions',
+      url: OPENROUTE_DIRECTIONS_URL,
+      keyPrefix,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: apiKey,
-      },
-      body: JSON.stringify({
-        coordinates: [
-          [originLng, originLat],
-          [destinationLng, destinationLat],
-        ],
-      }),
+      coordinates: requestBody.coordinates,
+    });
+
+    let response: Response;
+    let responseText = '';
+
+    try {
+      response = await fetch(
+        OPENROUTE_DIRECTIONS_URL,
+        {
+          method: 'POST',
+          headers: {
+            Accept:
+              'application/json, application/geo+json;charset=utf-8',
+            'Content-Type':
+              'application/json; charset=utf-8',
+            Authorization: apiKey,
+          },
+          body: JSON.stringify(requestBody),
+        },
+      );
+
+      responseText = await response.text();
+    } catch (error) {
+      if (isTlsCertificateError(error)) {
+        console.log('LOG_OPENROUTE_ERROR', {
+          kind: 'directions',
+          url: OPENROUTE_DIRECTIONS_URL,
+          keyPrefix,
+          status: null,
+          body: null,
+          reason: TLS_CERTIFICATE_ERROR_CODE,
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error),
+        });
+
+        throw new OpenRoutePlannerError(
+          TLS_CERTIFICATE_ERROR_CODE,
+          TLS_CERTIFICATE_ERROR_CODE,
+        );
+      }
+
+      console.log('LOG_OPENROUTE_ERROR', {
+        kind: 'directions',
+        url: OPENROUTE_DIRECTIONS_URL,
+        keyPrefix,
+        status: null,
+        body: null,
+        reason: 'network_error',
+        error:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      });
+
+      throw error;
+    }
+
+    console.log('LOG_OPENROUTE_RESPONSE', {
+      kind: 'directions',
+      url: OPENROUTE_DIRECTIONS_URL,
+      keyPrefix,
+      status: response.status,
+      ok: response.ok,
+      body: responseText,
     });
 
     if (!response.ok) {
-      console.log(
-        'OpenRouteService erro:',
-        response.status,
+      console.log('LOG_OPENROUTE_ERROR', {
+        kind: 'directions',
+        url: OPENROUTE_DIRECTIONS_URL,
+        keyPrefix,
+        status: response.status,
+        body: responseText,
+      });
+
+      throw new OpenRoutePlannerError(
+        'OPENROUTE_HTTP_ERROR',
+        `OpenRouteService HTTP ${response.status}`,
+        {
+          status: response.status,
+          responseBody: responseText,
+        },
       );
-      return null;
     }
 
-    const data = (await response.json()) as {
+    let data: {
       features?: {
         geometry?: {
           coordinates?: number[][];
@@ -192,14 +417,104 @@ class RouteService {
       }[];
     };
 
+    try {
+      data = JSON.parse(responseText) as {
+        features?: {
+          geometry?: {
+            coordinates?: number[][];
+          };
+        }[];
+      };
+    } catch {
+      console.log('LOG_OPENROUTE_ERROR', {
+        kind: 'directions',
+        url: OPENROUTE_DIRECTIONS_URL,
+        keyPrefix,
+        status: response.status,
+        body: responseText,
+        reason: 'invalid_json',
+      });
+
+      throw new OpenRoutePlannerError(
+        'OPENROUTE_INVALID_JSON',
+        'OpenRouteService resposta inválida',
+        {
+          status: response.status,
+          responseBody: responseText,
+        },
+      );
+    }
+
     const coordinates =
       data.features?.[0]?.geometry?.coordinates;
 
     if (!coordinates || coordinates.length < 2) {
-      return null;
+      console.log('LOG_OPENROUTE_ERROR', {
+        kind: 'directions',
+        url: OPENROUTE_DIRECTIONS_URL,
+        keyPrefix,
+        status: response.status,
+        body: responseText,
+        reason: 'empty_geometry',
+      });
+
+      throw new OpenRoutePlannerError(
+        'OPENROUTE_EMPTY_GEOMETRY',
+        'OpenRouteService devolveu rota inválida',
+        {
+          status: response.status,
+          responseBody: responseText,
+        },
+      );
     }
 
-    return mapGeoJsonCoordinates(coordinates);
+    const mappedCoordinates =
+      mapGeoJsonCoordinates(coordinates);
+
+    const distanceKm = totalRouteLengthKm(
+      mappedCoordinates,
+    );
+
+    await routeCacheService.save(
+      originLat,
+      originLng,
+      destinationLat,
+      destinationLng,
+      mappedCoordinates,
+      distanceKm,
+    );
+
+    console.log('LOG_ROUTE_CACHE_SAVED', {
+      cacheKey,
+      points: mappedCoordinates.length,
+      distanceKm: Number(distanceKm.toFixed(2)),
+      ttlDays: 60,
+    });
+
+    return mappedCoordinates;
+  }
+
+  private async fetchOpenRoute(
+    originLat: number,
+    originLng: number,
+    destinationLat: number,
+    destinationLng: number,
+  ): Promise<RouteCoordinate[] | null> {
+    try {
+      return await this.fetchOpenRouteDirections(
+        originLat,
+        originLng,
+        destinationLat,
+        destinationLng,
+      );
+    } catch (error) {
+      console.log(
+        'OpenRouteService erro:',
+        error,
+      );
+
+      return null;
+    }
   }
 
   private async fetchGoogleDirections(

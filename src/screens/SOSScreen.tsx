@@ -2,12 +2,12 @@ import React,{
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState
 } from 'react';
 
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Platform,
   Pressable,
@@ -30,27 +30,43 @@ import {
   useRouter
 } from 'expo-router';
 
-import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 
-import {
-  truxafeColors
-} from '@/src/theme/colors';
+import { useTranslation } from 'react-i18next';
 
-import {
-  truxafeSpacing
-} from '@/src/theme/spacing';
-
-import {
-  truxafeTypography
-} from '@/src/theme/typography';
+import { useTheme } from '../context/ThemeContext';
+import { useThemedStyles } from '../hooks/useThemedStyles';
 
 import {
   truxafeShadows
 } from '@/src/theme/shadows';
 
+import type { AppThemeTokens } from '../theme/palettes';
+
+import {
+  alertsApiService,
+} from '../services/alertsApi.service';
+
+import {
+  locationService,
+  type UserCoordinates,
+} from '../services/location.service';
+
+import type {
+  AlertType,
+} from '../types/alert.types';
+
+type SOSAlertPreset = {
+  type: AlertType;
+  title: string;
+  description: string;
+  createdLog: string;
+};
+
 
 export default function SOSScreen(){
+
+const { t } = useTranslation();
 
 const router=useRouter();
 
@@ -60,110 +76,171 @@ useSafeAreaInsets();
 const {width}=
 useWindowDimensions();
 
+const { theme } = useTheme();
+const styles = useThemedStyles(createStyles);
+
 const [loading,setLoading]=
 useState(false);
 
-const [location,
-setLocation]=useState(
-'Obtendo GPS...'
+const [coords,setCoords]=
+useState<UserCoordinates | null>(
+null
 );
 
-const pulse=
-useRef(
-new Animated.Value(0)
-).current;
+const [location,
+setLocation]=useState(
+t('sos.gettingGps')
+);
+
+const pulseAnim = useMemo(
+  () => new Animated.Value(0),
+  [],
+);
+
+const loadLocation = useCallback(
+  async () => {
+    try {
+      const lastKnown =
+        locationService
+          .getLastKnownLocation();
+
+      const loc =
+        lastKnown ??
+        await locationService
+          .getCurrentLocation();
+
+      setCoords(loc);
+
+      setLocation(
+        `${loc.latitude.toFixed(5)} ${loc.longitude.toFixed(5)}`,
+      );
+    } catch (error) {
+      console.log(
+        'Erro GPS:',
+        error,
+      );
+
+      setCoords(null);
+
+      setLocation(
+        t('sos.locationError'),
+      );
+    }
+  },
+  [t],
+);
+
+useEffect(() => {
+  const locationTimer = setTimeout(() => {
+    void loadLocation();
+  }, 0);
+
+  const loop = Animated.loop(
+    Animated.sequence([
+      Animated.timing(
+        pulseAnim,
+        {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        },
+      ),
+      Animated.timing(
+        pulseAnim,
+        {
+          toValue: 0,
+          duration: 1200,
+          useNativeDriver: true,
+        },
+      ),
+    ]),
+  );
+
+  loop.start();
+
+  return () => {
+    clearTimeout(locationTimer);
+    loop.stop();
+  };
+}, [loadLocation, pulseAnim]);
 
 
-useEffect(()=>{
+async function createSOSAlert(
+preset:SOSAlertPreset
+):Promise<void>{
 
-loadLocation();
+if(!coords){
 
-Animated.loop(
-
-Animated.sequence([
-
-Animated.timing(
-pulse,
-{
-toValue:1,
-duration:1200,
-useNativeDriver:true
-}
-),
-
-Animated.timing(
-pulse,
-{
-toValue:0,
-duration:1200,
-useNativeDriver:true
-}
-)
-
-])
-
-).start();
-
-},[]);
-
-
-async function loadLocation(){
-
-try{
-
-const permission=
-
-await Location
-.requestForegroundPermissionsAsync();
-
-if(
-permission.status!==
-'granted'
-){
-
-setLocation(
-'GPS desativado'
+Alert.alert(
+t('common.error'),
+t('sos.gpsRequired')
 );
 
 return;
 
 }
 
-const loc=
+try{
 
-await Location
-.getCurrentPositionAsync({
+setLoading(true);
 
-accuracy:
-Location.Accuracy
-.High
+const alert=
+
+await alertsApiService
+.createAlert({
+
+type:
+preset.type,
+
+title:
+preset.title,
+
+latitude:
+coords.latitude,
+
+longitude:
+coords.longitude,
 
 });
 
-const latitude=
+if(!alert){
 
-loc.coords.latitude;
+throw new Error(
+'Falha ao criar alerta'
+);
 
-const longitude=
+}
 
-loc.coords.longitude;
+console.log(
+preset.createdLog,
+alert
+);
 
-setLocation(
+Alert.alert(
+t('sos.alertSent'),
+t('sos.communityNotified')
+);
 
-`${latitude.toFixed(5)}
-${longitude.toFixed(5)}`
-
+router.push(
+'/(tabs)/radar'
 );
 
 }catch(error){
 
 console.log(
-'Erro GPS:',
+'Erro criar alerta SOS:',
 error
 );
 
-setLocation(
-'Erro localização'
+Alert.alert(
+t('common.error'),
+t('sos.alertFailed')
+);
+
+}finally{
+
+setLoading(
+false
 );
 
 }
@@ -173,9 +250,9 @@ setLocation(
 
 async function activateSOS(){
 
-try{
-
-setLoading(true);
+console.log(
+'SOS_BUTTON_PRESSED'
+);
 
 if(
 Platform.OS!==
@@ -193,42 +270,32 @@ Haptics
 
 }
 
-router.push(
-'/(tabs)/alerts'
-);
+await createSOSAlert({
 
-}catch(error){
+type:'sos',
 
-console.log(
-'Erro SOS:',
-error
-);
+title:
+t('sos.presets.emergency'),
 
-}
+description:
+'Pedido de emergência enviado',
 
-finally{
-
-setLoading(
-false
-);
-
-}
-
-}
-
-
-const scale=
-
-pulse.interpolate({
-
-inputRange:[0,1],
-
-outputRange:[
-1,
-1.15
-]
+createdLog:
+'SOS_ALERT_CREATED',
 
 });
+
+}
+
+
+const scale = useMemo(
+  () =>
+    pulseAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.15],
+    }),
+  [pulseAnim],
+);
 
 
 const buttonSize=
@@ -266,7 +333,7 @@ style={styles.card}
 style={styles.label}
 >
 
-CANAL EMERGÊNCIA
+{t('sos.channel')}
 
 </Text>
 
@@ -321,6 +388,8 @@ onPress={
 activateSOS
 }
 
+disabled={loading}
+
 style={[
 
 styles.sosButton,
@@ -347,7 +416,7 @@ buttonSize/2
 loading?
 
 <ActivityIndicator
-color="#fff"
+color={theme.components.buttonPrimaryText}
 />
 
 :
@@ -360,7 +429,7 @@ styles.sosText
 }
 >
 
-SOS
+{t('sos.title')}
 
 </Text>
 
@@ -370,7 +439,7 @@ styles.small
 }
 >
 
-Toque para enviar
+{t('sos.tapToSend')}
 
 </Text>
 
@@ -388,19 +457,37 @@ style={styles.grid}
 
 <Pressable
 style={styles.item}
+disabled={loading}
+onPress={()=>{
+void createSOSAlert({
+
+type:'fuel',
+
+title:
+t('sos.presets.fuelTheft'),
+
+description:
+t('sos.presets.fuelTheft'),
+
+createdLog:
+'FUEL_ALERT_CREATED',
+
+});
+
+}}
 >
 
 <Ionicons
 name="flame-outline"
 size={28}
-color="#ff4d4d"
+color={theme.colors.danger}
 />
 
 <Text
 style={styles.itemText}
 >
 
-Roubo combustível
+{t('sos.grid.fuelTheft')}
 
 </Text>
 
@@ -408,19 +495,37 @@ Roubo combustível
 
 <Pressable
 style={styles.item}
+disabled={loading}
+onPress={()=>{
+void createSOSAlert({
+
+type:'cargo_theft',
+
+title:
+t('sos.presets.cargoTheft'),
+
+description:
+t('sos.presets.cargoTheft'),
+
+createdLog:
+'CARGO_ALERT_CREATED',
+
+});
+
+}}
 >
 
 <Ionicons
 name="cube-outline"
 size={28}
-color="#ff4d4d"
+color={theme.colors.danger}
 />
 
 <Text
 style={styles.itemText}
 >
 
-Roubo carga
+{t('sos.grid.cargoTheft')}
 
 </Text>
 
@@ -428,19 +533,37 @@ Roubo carga
 
 <Pressable
 style={styles.item}
+disabled={loading}
+onPress={()=>{
+void createSOSAlert({
+
+type:'cabin_attack',
+
+title:
+t('sos.presets.cabinAttack'),
+
+description:
+t('sos.presets.cabinAttack'),
+
+createdLog:
+'CABIN_ALERT_CREATED',
+
+});
+
+}}
 >
 
 <Ionicons
 name="car-outline"
 size={28}
-color="#ff4d4d"
+color={theme.colors.danger}
 />
 
 <Text
 style={styles.itemText}
 >
 
-Ataque cabine
+{t('sos.grid.cabinAttack')}
 
 </Text>
 
@@ -448,19 +571,37 @@ Ataque cabine
 
 <Pressable
 style={styles.item}
+disabled={loading}
+onPress={()=>{
+void createSOSAlert({
+
+type:'pallet',
+
+title:
+t('sos.presets.palletTheft'),
+
+description:
+t('sos.presets.palletTheft'),
+
+createdLog:
+'PALLET_ALERT_CREATED',
+
+});
+
+}}
 >
 
 <Ionicons
 name="layers-outline"
 size={28}
-color="#ff4d4d"
+color={theme.colors.danger}
 />
 
 <Text
 style={styles.itemText}
 >
 
-Roubo paletes
+{t('sos.grid.palletTheft')}
 
 </Text>
 
@@ -477,19 +618,21 @@ Roubo paletes
 }
 
 
-const styles=
-StyleSheet.create({
+function createStyles(theme: AppThemeTokens) {
+  const { colors, components } = theme;
+
+  return StyleSheet.create({
 
 container:{
 flex:1,
 backgroundColor:
-truxafeColors.background,
+colors.background,
 padding:20
 },
 
 card:{
 backgroundColor:
-truxafeColors.surface,
+colors.surface,
 padding:20,
 borderRadius:20,
 marginBottom:25,
@@ -497,13 +640,13 @@ marginBottom:25,
 },
 
 label:{
-color:'#ff4d4d',
+color:colors.danger,
 fontWeight:'bold',
 marginBottom:10
 },
 
 location:{
-color:'#fff'
+color:colors.textPrimary
 },
 
 center:{
@@ -515,12 +658,12 @@ marginBottom:40
 halo:{
 position:'absolute',
 borderWidth:2,
-borderColor:'#ff4d4d',
+borderColor:colors.danger,
 opacity:0.3
 },
 
 sosButton:{
-backgroundColor:'#b91c1c',
+backgroundColor:colors.danger,
 justifyContent:'center',
 alignItems:'center'
 },
@@ -528,11 +671,11 @@ alignItems:'center'
 sosText:{
 fontSize:42,
 fontWeight:'bold',
-color:'#fff'
+color:components.buttonPrimaryText
 },
 
 small:{
-color:'#fff',
+color:components.buttonPrimaryText,
 marginTop:10
 },
 
@@ -544,7 +687,7 @@ justifyContent:'space-between'
 
 item:{
 width:'48%',
-backgroundColor:'#0f172a',
+backgroundColor:colors.card,
 padding:20,
 marginBottom:15,
 borderRadius:15,
@@ -552,9 +695,10 @@ alignItems:'center'
 },
 
 itemText:{
-color:'#fff',
+color:colors.textPrimary,
 marginTop:10,
 textAlign:'center'
 }
 
 });
+}

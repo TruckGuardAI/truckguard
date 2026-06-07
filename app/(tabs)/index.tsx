@@ -1,339 +1,564 @@
-import React from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import { useTranslation } from 'react-i18next';
 
 import {
-View,
-Text,
-StyleSheet,
-TouchableOpacity,
-ScrollView
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 
 import {
-MaterialIcons
+  MaterialIcons,
 } from '@expo/vector-icons';
 
+import {
+  useFocusEffect,
+  useRouter,
+} from 'expo-router';
+
+import { useAuth } from '../../src/context/AuthContext';
+import { useTheme } from '../../src/context/ThemeContext';
+import { useHomeAlerts } from '../../src/hooks/useHomeAlerts';
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+import { supabase } from '../../src/lib/supabase';
+import { profileService } from '../../src/services/profile.service';
+import AlertTrustBadge from '../../src/components/alerts/AlertTrustBadge';
+import AlertVoteButtons from '../../src/components/alerts/AlertVoteButtons';
+import ProfileReputationBadge from '../../src/components/profile/ProfileReputationBadge';
+import HomeBrandBlock from '../../src/components/branding/HomeBrandBlock';
+import { formatAlertLocationDisplay } from '../../src/utils/locationDescription.utils';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
+
+import type {
+  HomeSafetyStatus,
+} from '../../src/services/community.service';
+
+type StatusDisplay = {
+  label: string;
+  subtitle: string;
+  color: string;
+};
+
+function getStatusDisplay(
+  status: HomeSafetyStatus,
+  colors: AppThemeTokens['colors'],
+  t: (key: string) => string,
+): StatusDisplay {
+  switch (status) {
+    case 'critical':
+      return {
+        label: t('home.statusCritical'),
+        subtitle: t('home.statusCriticalDesc'),
+        color: colors.danger,
+      };
+    case 'attention':
+      return {
+        label: t('home.statusAttention'),
+        subtitle: t('home.statusAttentionDesc'),
+        color: colors.warning,
+      };
+    default:
+      return {
+        label: t('home.statusSafe'),
+        subtitle: t('home.statusSafeDesc'),
+        color: colors.success,
+      };
+  }
+}
+
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    wrapper: {
+      flex: 1,
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+
+    container: {
+      width: '100%',
+      maxWidth: 480,
+      backgroundColor: colors.background,
+      padding: 20,
+    },
+
+    content: {
+      paddingTop: 0,
+    },
+
+    statusCard: {
+      backgroundColor: colors.card,
+      padding: 20,
+      borderRadius: 20,
+      marginBottom: 25,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    statusLabel: {
+      color: colors.textSecondary,
+    },
+
+    statusValue: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      marginTop: 5,
+    },
+
+    small: {
+      color: colors.textMuted,
+    },
+
+    section: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+      marginBottom: 15,
+    },
+
+    loader: {
+      marginBottom: 15,
+    },
+
+    alertCard: {
+      backgroundColor: colors.card,
+      padding: 18,
+      borderRadius: 15,
+      marginBottom: 15,
+    },
+
+    alertTitle: {
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+
+    alertText: {
+      color: colors.textSecondary,
+      marginTop: 8,
+    },
+
+    actionsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      marginBottom: 30,
+    },
+
+    action: {
+      backgroundColor: colors.card,
+      width: '48%',
+      height: 90,
+      marginBottom: 15,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    actionText: {
+      color: colors.textPrimary,
+      fontSize: 12,
+      marginTop: 8,
+    },
+
+    summary: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 60,
+    },
+
+    summaryCard: {
+      backgroundColor: colors.card,
+      width: '30%',
+      padding: 20,
+      borderRadius: 15,
+      alignItems: 'center',
+    },
+
+    number: {
+      fontSize: 25,
+      fontWeight: 'bold',
+      color: colors.primary,
+    },
+
+    summaryText: {
+      color: colors.textSecondary,
+      fontSize: 12,
+      textAlign: 'center',
+      marginTop: 8,
+    },
+  });
+}
+
 export default function HomeScreen() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const {
+    loading: authLoading,
+  } = useAuth();
 
-return (
+  const [
+    greetingName,
+    setGreetingName,
+  ] = useState<string | null>(
+    null,
+  );
 
-<View style={styles.wrapper}>
+  const [
+    vehicleSubtitle,
+    setVehicleSubtitle,
+  ] = useState(
+    '',
+  );
 
-<ScrollView
-style={styles.container}
-showsVerticalScrollIndicator={false}
->
+  const {
+    nearbyAlerts,
+    safetyStatus,
+    stats,
+    loading,
+    refresh,
+  } = useHomeAlerts();
 
-<View style={styles.header}>
+  useFocusEffect(
+    useCallback(() => {
+      async function loadProfileHeader() {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-<Text style={styles.greeting}>
-Olá João 👋
-</Text>
+        console.log('AUTH_USER', user);
 
-<Text style={styles.subtitle}>
-Motorista profissional
-</Text>
+        if (!user) {
+          router.replace('/login');
 
-</View>
+          return;
+        }
 
-<View style={styles.statusCard}>
+        const displayName =
+          (user.user_metadata
+            ?.full_name as
+            | string
+            | undefined) ||
+          user.email ||
+          '';
 
-<View>
+        setGreetingName(displayName);
 
-<Text style={styles.statusLabel}>
-Status atual
-</Text>
+        try {
+          const profile =
+            await profileService.loadAuthenticatedProfile();
 
-<Text style={styles.safe}>
-🟢 Seguro
-</Text>
+          const tipoVeiculo =
+            profile?.tipoVeiculo?.trim() ??
+            '';
 
-<Text style={styles.small}>
-Tudo tranquilo na rota
-</Text>
+          setVehicleSubtitle(
+            tipoVeiculo.length > 0
+              ? tipoVeiculo
+              : t('home.defaultName'),
+          );
+        } catch (error) {
+          console.log(
+            'HOME_PROFILE_LOAD_ERROR',
+            error,
+          );
 
-</View>
+          setVehicleSubtitle(
+            t('home.defaultName'),
+          );
+        }
+      }
 
-<MaterialIcons
-name="security"
-size={45}
-color="#22c55e"
-/>
+      void loadProfileHeader();
+    }, [router, t]),
+  );
 
-</View>
+  const statusDisplay = useMemo(
+    () =>
+      getStatusDisplay(
+        safetyStatus,
+        theme.colors,
+        t,
+      ),
+    [safetyStatus, theme.colors, t],
+  );
 
-<Text style={styles.section}>
-Alertas próximos
-</Text>
+  useEffect(() => {
+    console.log('HOME_RENDER_ITEMS', nearbyAlerts.length);
+  }, [nearbyAlerts]);
 
-<View style={styles.alertCard}>
+  const homeGreeting =
+    authLoading || greetingName === null
+      ? t('home.greeting', {
+          name: vehicleSubtitle || t('home.defaultName'),
+        })
+      : t('home.greeting', {
+          name: greetingName,
+        });
 
-<Text style={styles.alertTitle}>
-🚨 Tentativa de roubo
-</Text>
+  return (
+    <View style={styles.wrapper}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <HomeBrandBlock greeting={homeGreeting} />
 
-<Text style={styles.alertText}>
-📍 4 km • ⏱ há 18 min
-</Text>
+        <View style={styles.statusCard}>
+          <View>
+            <Text style={styles.statusLabel}>
+              {t('home.currentStatus')}
+            </Text>
 
-</View>
+            <Text
+              style={[
+                styles.statusValue,
+                {
+                  color:
+                    statusDisplay.color,
+                },
+              ]}
+            >
+              {statusDisplay.label}
+            </Text>
 
-<View style={styles.alertCard}>
+            <Text style={styles.small}>
+              {statusDisplay.subtitle}
+            </Text>
+          </View>
 
-<Text style={styles.alertTitle}>
-⚠️ Estrada perigosa
-</Text>
+          <MaterialIcons
+            name="security"
+            size={45}
+            color={statusDisplay.color}
+          />
+        </View>
 
-<Text style={styles.alertText}>
-📍 8 km • ⏱ há 35 min
-</Text>
+        <Text style={styles.section}>
+          {t('home.nearbyAlerts')}
+        </Text>
 
-</View>
+        {loading ? (
+          <ActivityIndicator
+            color={theme.colors.primary}
+            style={styles.loader}
+          />
+        ) : nearbyAlerts.length === 0 ? (
+          <View style={styles.alertCard}>
+            <Text style={styles.alertTitle}>
+              {t('home.noNearbyAlerts')}
+            </Text>
 
-<Text style={styles.section}>
-Ações rápidas
-</Text>
+            <Text style={styles.alertText}>
+              {t('home.noAlertsInRadius')}
+            </Text>
+          </View>
+        ) : (
+          nearbyAlerts.map((alert, index) => {
+            if (index === 0) {
+              console.log('HOME_RENDER_ITEM', alert.id);
+            }
 
-<View style={styles.actionsContainer}>
+            return (
+            <View
+              key={alert.id}
+              style={styles.alertCard}
+            >
+              <Text style={styles.alertTitle}>
+                {alert.title}
+              </Text>
 
-<TouchableOpacity style={styles.action}>
+              <AlertTrustBadge
+                trustLevel={
+                  alert.trustLevel
+                }
+              />
 
-<MaterialIcons
-name="warning"
-size={30}
-color="#ef4444"
-/>
+              {alert.creatorTrustLevel !==
+                undefined &&
+              alert.creatorReputationScore !==
+                undefined ? (
+                <ProfileReputationBadge
+                  reputationScore={
+                    alert.creatorReputationScore
+                  }
+                  trustLevel={
+                    alert.creatorTrustLevel
+                  }
+                  compact
+                  context="home_alert"
+                />
+              ) : null}
 
-<Text style={styles.actionText}>
-SOS
-</Text>
+              <Text style={styles.alertText}>
+                📍{' '}
+                {formatAlertLocationDisplay(
+                  alert.locationDescription,
+                )}
+              </Text>
 
-</TouchableOpacity>
+              <Text style={styles.alertText}>
+                {alert.distanceKm != null
+                  ? `${alert.distanceKm.toFixed(1)} km`
+                  : t('home.unknownDistance')}{' '}
+                • ⏱ {alert.timeAgo}
+              </Text>
 
-<TouchableOpacity style={styles.action}>
+              <AlertVoteButtons
+                key={alert.id}
+                alertId={alert.id}
+                positiveVotes={
+                  alert.positiveVotes
+                }
+                negativeVotes={
+                  alert.negativeVotes
+                }
+                onVoted={() => {
+                  void refresh();
+                }}
+                creatorReputationScore={
+                  alert.creatorReputationScore
+                }
+                creatorTrustLevel={
+                  alert.creatorTrustLevel
+                }
+              />
+            </View>
+            );
+          })
+        )}
 
-<MaterialIcons
-name="map"
-size={30}
-color="#f97316"
-/>
+        <Text style={styles.section}>
+          {t('home.quickActions')}
+        </Text>
 
-<Text style={styles.actionText}>
-Mapa
-</Text>
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={styles.action}
+            onPress={() => {
+              console.log('ACTION_SOS');
+              router.push('/sos');
+            }}
+          >
+            <MaterialIcons
+              name="warning"
+              size={30}
+              color={theme.colors.danger}
+            />
 
-</TouchableOpacity>
+            <Text style={styles.actionText}>
+              {t('home.actionSos')}
+            </Text>
+          </TouchableOpacity>
 
-<TouchableOpacity style={styles.action}>
+          <TouchableOpacity
+            style={styles.action}
+            onPress={() => {
+              console.log('ACTION_MAP');
+              router.push('/(tabs)/radar');
+            }}
+          >
+            <MaterialIcons
+              name="map"
+              size={30}
+              color={theme.colors.primary}
+            />
 
-<MaterialIcons
-name="report-problem"
-size={30}
-color="#facc15"
-/>
+            <Text style={styles.actionText}>
+              {t('home.actionMap')}
+            </Text>
+          </TouchableOpacity>
 
-<Text style={styles.actionText}>
-Reportar
-</Text>
+          <TouchableOpacity
+            style={styles.action}
+            onPress={() => {
+              console.log('ACTION_REPORT');
+              router.push('/report-alert');
+            }}
+          >
+            <MaterialIcons
+              name="report-problem"
+              size={30}
+              color={theme.colors.warning}
+            />
 
-</TouchableOpacity>
+            <Text style={styles.actionText}>
+              {t('home.actionReport')}
+            </Text>
+          </TouchableOpacity>
 
-<TouchableOpacity style={styles.action}>
+          <TouchableOpacity
+            style={styles.action}
+            onPress={() => {
+              console.log('ACTION_HISTORY');
+              router.push('/(tabs)/history');
+            }}
+          >
+            <MaterialIcons
+              name="history"
+              size={30}
+              color={theme.colors.textSecondary}
+            />
 
-<MaterialIcons
-name="history"
-size={30}
-color="#3b82f6"
-/>
+            <Text style={styles.actionText}>
+              {t('home.actionHistory')}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-<Text style={styles.actionText}>
-Histórico
-</Text>
+        <Text style={styles.section}>
+          {t('home.summary')}
+        </Text>
 
-</TouchableOpacity>
+        <View style={styles.summary}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.number}>
+              {stats.openCount}
+            </Text>
 
-</View>
+            <Text style={styles.summaryText}>
+              {t('home.openAlerts')}
+            </Text>
+          </View>
 
-<Text style={styles.section}>
-Resumo
-</Text>
+          <View style={styles.summaryCard}>
+            <Text style={styles.number}>
+              {stats.positiveTotal}
+            </Text>
 
-<View style={styles.summary}>
+            <Text style={styles.summaryText}>
+              {t('home.confirmations')}
+            </Text>
+          </View>
 
-<View style={styles.summaryCard}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.number}>
+              {stats.negativeTotal}
+            </Text>
 
-<Text style={styles.number}>
-4
-</Text>
-
-<Text style={styles.summaryText}>
-Alertas hoje
-</Text>
-
-</View>
-
-<View style={styles.summaryCard}>
-
-<Text style={styles.number}>
-3
-</Text>
-
-<Text style={styles.summaryText}>
-Confirmados
-</Text>
-
-</View>
-
-<View style={styles.summaryCard}>
-
-<Text style={styles.number}>
-1
-</Text>
-
-<Text style={styles.summaryText}>
-Ajudas
-</Text>
-
-</View>
-
-</View>
-
-</ScrollView>
-
-</View>
-
-);
-
+            <Text style={styles.summaryText}>
+              {t('home.rejections')}
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
 }
-
-const styles = StyleSheet.create({
-
-wrapper:{
-flex:1,
-alignItems:'center',
-backgroundColor:'#020617'
-},
-
-container:{
-width:'100%',
-maxWidth:480,
-backgroundColor:'#020617',
-padding:20
-},
-
-header:{
-marginTop:50,
-marginBottom:25
-},
-
-greeting:{
-fontSize:32,
-fontWeight:'bold',
-color:'#fff'
-},
-
-subtitle:{
-fontSize:15,
-color:'#94a3b8'
-},
-
-statusCard:{
-backgroundColor:'#0f172a',
-padding:20,
-borderRadius:20,
-marginBottom:25,
-flexDirection:'row',
-justifyContent:'space-between',
-alignItems:'center'
-},
-
-statusLabel:{
-color:'#94a3b8'
-},
-
-safe:{
-fontSize:22,
-fontWeight:'bold',
-color:'#22c55e',
-marginTop:5
-},
-
-small:{
-color:'#64748b'
-},
-
-section:{
-fontSize:22,
-fontWeight:'bold',
-color:'#fff',
-marginBottom:15
-},
-
-alertCard:{
-backgroundColor:'#0f172a',
-padding:18,
-borderRadius:15,
-marginBottom:15
-},
-
-alertTitle:{
-color:'#fff',
-fontSize:16,
-fontWeight:'600'
-},
-
-alertText:{
-color:'#94a3b8',
-marginTop:8
-},
-
-actionsContainer:{
-flexDirection:'row',
-flexWrap:'wrap',
-justifyContent:'space-between',
-marginBottom:30
-},
-
-action:{
-backgroundColor:'#0f172a',
-width:'48%',
-height:90,
-marginBottom:15,
-borderRadius:20,
-justifyContent:'center',
-alignItems:'center'
-},
-
-actionText:{
-color:'#fff',
-fontSize:12,
-marginTop:8
-},
-
-summary:{
-flexDirection:'row',
-justifyContent:'space-between',
-marginBottom:60
-},
-
-summaryCard:{
-backgroundColor:'#0f172a',
-width:'30%',
-padding:20,
-borderRadius:15,
-alignItems:'center'
-},
-
-number:{
-fontSize:25,
-fontWeight:'bold',
-color:'#f97316'
-},
-
-summaryText:{
-color:'#94a3b8',
-fontSize:12,
-textAlign:'center',
-marginTop:8
-}
-
-});

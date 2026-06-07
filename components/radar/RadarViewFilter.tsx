@@ -7,15 +7,21 @@ import {
   Pressable,
 } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
+
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
+
 import type { RadarViewMode } from '../../src/types/alert.types';
 
 const VIEW_OPTIONS: {
-  label: string;
+  filterKey: 'nearby' | 'onRoute' | 'all';
   value: RadarViewMode;
 }[] = [
-  { label: 'Próximos', value: 'nearby' },
-  { label: 'Na rota', value: 'route' },
-  { label: 'Todos', value: 'all' },
+  { filterKey: 'nearby', value: 'nearby' },
+  { filterKey: 'onRoute', value: 'route' },
+  { filterKey: 'all', value: 'all' },
 ];
 
 type Props = {
@@ -23,10 +29,54 @@ type Props = {
   onChange: (value: RadarViewMode) => void;
 };
 
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    row: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 10,
+    },
+
+    chip: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 16,
+      paddingVertical: 9,
+    },
+
+    chipActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primaryMuted,
+    },
+
+    chipPressed: {
+      opacity: 0.88,
+    },
+
+    chipText: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+
+    chipTextActive: {
+      color: colors.textPrimary,
+    },
+  });
+}
+
 export default function RadarViewFilter({
   selected,
   onChange,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.row}>
       {VIEW_OPTIONS.map((option) => {
@@ -48,7 +98,7 @@ export default function RadarViewFilter({
                 isActive && styles.chipTextActive,
               ]}
             >
-              {option.label}
+              {t(`radar.filters.${option.filterKey}`)}
             </Text>
           </Pressable>
         );
@@ -56,40 +106,3 @@ export default function RadarViewFilter({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 10,
-  },
-
-  chip: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-  },
-
-  chipActive: {
-    backgroundColor: '#2563eb',
-    borderColor: '#60a5fa',
-  },
-
-  chipPressed: {
-    opacity: 0.88,
-  },
-
-  chipText: {
-    color: '#94a3b8',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  chipTextActive: {
-    color: '#fff',
-  },
-});

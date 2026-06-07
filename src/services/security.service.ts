@@ -7,10 +7,6 @@ import {
 } from './location.service';
 
 import {
-  historyService
-} from './history.service';
-
-import {
   notificationsService
 } from './notifications.service';
 
@@ -131,24 +127,6 @@ class SecurityService{
       :
 
       'full_attack';
-
-      historyService.add({
-
-        type:
-        eventType,
-
-        sensor:
-        sensorName,
-
-        time:
-        new Date()
-        .toLocaleTimeString(),
-
-        siren:true,
-
-        communitySent:true
-
-      });
 
       await notificationsService.send(
 

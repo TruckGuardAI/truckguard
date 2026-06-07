@@ -99,7 +99,7 @@ function buildAreaKey(
 }
 
 function countByType(
-  alerts: Array<{ type: AlertType }>,
+  alerts: { type: AlertType }[],
   type: AlertType,
 ): number {
   return alerts.filter((item) => item.type === type).length;
@@ -337,6 +337,14 @@ class RiskEngineService {
       areaKey,
       calculatedAt: now.toISOString(),
     };
+
+    console.log('RISK_SCORE', {
+      source: 'riskEngine.calculateAreaRisk',
+      score: result.score,
+      level: result.level,
+      nearbyCount: result.nearbyCount,
+      areaKey: result.areaKey,
+    });
 
     this.cache.set(cacheKey, {
       result,

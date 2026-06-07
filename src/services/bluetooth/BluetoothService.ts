@@ -19,11 +19,6 @@
 
 import { Platform, PermissionsAndroid } from 'react-native';
 
-// Types para BLE (será instalado via npm)
-type BleManager = any;
-type Device = any;
-type Characteristic = any;
-
 import type {
   BluetoothConnectionState,
   BluetoothConnectionListener,
@@ -36,6 +31,9 @@ import { BluetoothError } from '../../types/bluetooth.types';
 import { BLUETOOTH_CONFIG } from '../../config/bluetooth.config';
 import { BluetoothProtocolParser } from './BluetoothProtocolParser';
 import { BluetoothEventProcessor } from './BluetoothEventProcessor';
+
+type BleManager = any;
+type Device = any;
 
 /**
  * Serviço Bluetooth para comunicação com ESP32
@@ -76,7 +74,8 @@ class BluetoothService {
       console.log('📡 Bluetooth: Inicializando...');
 
       // Criar BLE Manager
-      const { BleManager: BleManagerClass } = require('react-native-ble-plx');
+      const { BleManager: BleManagerClass } =
+        await import('react-native-ble-plx');
       this.bleManager = new BleManagerClass();
 
       // Verificar permissões
@@ -380,7 +379,7 @@ class BluetoothService {
     console.log('👂 Bluetooth: Iniciando monitoramento de notificações...');
 
     try {
-      const subscription = this.connectedDevice.monitorCharacteristicForService(
+      void this.connectedDevice.monitorCharacteristicForService(
         BLUETOOTH_CONFIG.serviceUUID,
         BLUETOOTH_CONFIG.notifyCharacteristicUUID,
         async (error: Error | null, characteristic: any) => {

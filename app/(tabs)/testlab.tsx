@@ -1,262 +1,191 @@
-import React,{
-    useState
-    } from 'react';
-    
-    import {
-    View,
-    Text,
-    TouchableOpacity,
-    StyleSheet
-    } from 'react-native';
-    
-    import {
-    securityService
-    } from '../../src/services/security.service';
-    
-    export default function TestLab(){
-    
-    const[
-    state,
-    setState
-    ]=useState(
-    
-    securityService
-    .getState()
-    
-    );
-    
-    async function simulate(
-    
-    sensor:any
-    
-    ){
-    
-    const data=
-    
-    await securityService
-    .simulateEvent(
-    sensor
-    );
-    
-    setState(
-    {...data}
-    );
-    
-    }
-    
-    function reset(){
-    
-    const data=
-    
-    securityService
-    .reset();
-    
-    setState(
-    {...data}
-    );
-    
-    }
-    
-    return(
-    
-    <View
-    style={styles.container}
-    >
-    
-    <Text
-    style={styles.title}
-    >
-    
-    TruckGuard Test Lab
-    
-    </Text>
-    
-    <Text
-    style={styles.status}
-    >
-    
-    Sirene:
-    
-    {
-    
-    state.alarm
-    
-    ?
-    
-    ' 🚨 ON'
-    
-    :
-    
-    ' 🟢 OFF'
-    
-    }
-    
-    </Text>
-    
-    <Text
-    style={styles.event}
-    >
-    
-    {
-    
-    state.lastEvent||
-    
-    'Sem eventos'
-    
-    }
-    
-    </Text>
-    
-    <TouchableOpacity
-    style={styles.button}
-    onPress={()=>
-    simulate(
-    'tankLeft'
-    )
-    }
-    >
-    
-    <Text>
-    Simular tanque esquerdo
-    </Text>
-    
-    </TouchableOpacity>
-    
-    <TouchableOpacity
-    style={styles.button}
-    onPress={()=>
-    simulate(
-    'tankRight'
-    )
-    }
-    >
-    
-    <Text>
-    Simular tanque direito
-    </Text>
-    
-    </TouchableOpacity>
-    
-    <TouchableOpacity
-    style={styles.button}
-    onPress={()=>
-    simulate(
-    'palletLeft'
-    )
-    }
-    >
-    
-    <Text>
-    Simular palete esquerdo
-    </Text>
-    
-    </TouchableOpacity>
-    
-    <TouchableOpacity
-    style={styles.button}
-    onPress={()=>
-    simulate(
-    'palletRight'
-    )
-    }
-    >
-    
-    <Text>
-    Simular palete direito
-    </Text>
-    
-    </TouchableOpacity>
-    
-    <TouchableOpacity
-    style={styles.alertButton}
-    onPress={()=>
-    simulate(
-    'all'
-    )
-    }
-    >
-    
-    <Text
-    style={{
-    color:'#fff'
-    }}
-    >
-    
-    Ataque completo
-    
-    </Text>
-    
-    </TouchableOpacity>
-    
-    <TouchableOpacity
-    style={styles.reset}
-    onPress={
-    reset
-    }
-    >
-    
-    <Text>
-    
-    Resetar
-    
-    </Text>
-    
-    </TouchableOpacity>
-    
-    </View>
-    
-    );
-    
-    }
-    
-    const styles=
-    StyleSheet.create({
-    
-    container:{
-    flex:1,
-    padding:20,
-    backgroundColor:'#020617'
-    },
-    
-    title:{
-    fontSize:30,
-    fontWeight:'bold',
-    color:'#fff',
-    marginTop:50
-    },
-    
-    status:{
-    color:'#fff',
-    marginTop:20,
-    fontSize:20
-    },
-    
-    event:{
-    color:'#f97316',
-    marginTop:10,
-    marginBottom:30
-    },
-    
-    button:{
-    padding:15,
-    backgroundColor:'#0f172a',
-    borderRadius:15,
-    marginBottom:15
-    },
-    
-    alertButton:{
-    padding:15,
-    backgroundColor:'#dc2626',
-    borderRadius:15,
-    marginBottom:15,
-    alignItems:'center'
-    },
-    
-    reset:{
-    padding:15,
-    backgroundColor:'#94a3b8',
-    borderRadius:15,
-    alignItems:'center'
-    }
-    
-    });
+import React, { useState } from 'react';
+
+import { useTranslation } from 'react-i18next';
+
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+} from 'react-native';
+
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
+
+import {
+  securityService,
+  type SensorType,
+} from '../../src/services/security.service';
+
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 20,
+      backgroundColor: colors.background,
+    },
+
+    title: {
+      fontSize: 30,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+      marginTop: 50,
+    },
+
+    status: {
+      color: colors.textPrimary,
+      marginTop: 20,
+      fontSize: 20,
+    },
+
+    event: {
+      color: colors.primary,
+      marginTop: 10,
+      marginBottom: 30,
+    },
+
+    button: {
+      padding: 15,
+      backgroundColor: colors.card,
+      borderRadius: 15,
+      marginBottom: 15,
+    },
+
+    buttonText: {
+      color: colors.textPrimary,
+    },
+
+    alertButton: {
+      padding: 15,
+      backgroundColor: colors.danger,
+      borderRadius: 15,
+      marginBottom: 15,
+      alignItems: 'center',
+    },
+
+    alertButtonText: {
+      color: theme.components.buttonPrimaryText,
+    },
+
+    reset: {
+      padding: 15,
+      backgroundColor: colors.textMuted,
+      borderRadius: 15,
+      alignItems: 'center',
+    },
+
+    resetText: {
+      color: colors.textPrimary,
+    },
+  });
+}
+
+export default function TestLab() {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+
+  const [
+    state,
+    setState,
+  ] = useState(
+    securityService.getState(),
+  );
+
+  async function simulate(sensor: SensorType) {
+    const data =
+      await securityService.simulateEvent(
+        sensor,
+      );
+
+    setState({ ...data });
+  }
+
+  function reset() {
+    const data = securityService.reset();
+    setState({ ...data });
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>
+        {t('testlab.title')}
+      </Text>
+
+      <Text style={styles.status}>
+        {t('testlab.siren')}
+        {state.alarm ? t('testlab.on') : t('testlab.off')}
+      </Text>
+
+      <Text style={styles.event}>
+        {state.lastEvent || t('testlab.noEvents')}
+      </Text>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          void simulate('tankLeft');
+        }}
+      >
+        <Text style={styles.buttonText}>
+          {t('testlab.simulateTankLeft')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          void simulate('tankRight');
+        }}
+      >
+        <Text style={styles.buttonText}>
+          {t('testlab.simulateTankRight')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          void simulate('palletLeft');
+        }}
+      >
+        <Text style={styles.buttonText}>
+          {t('testlab.simulatePalletLeft')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => {
+          void simulate('palletRight');
+        }}
+      >
+        <Text style={styles.buttonText}>
+          {t('testlab.simulatePalletRight')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.alertButton}
+        onPress={() => {
+          void simulate('all');
+        }}
+      >
+        <Text style={styles.alertButtonText}>
+          {t('testlab.fullAttack')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.reset}
+        onPress={reset}
+      >
+        <Text style={styles.resetText}>
+          {t('testlab.reset')}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}

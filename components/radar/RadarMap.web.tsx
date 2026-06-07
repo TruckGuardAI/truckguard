@@ -1,7 +1,8 @@
 import React, {
+  useCallback,
   useEffect,
   useState,
-  useMemo
+  useMemo,
 } from 'react';
 
 import {
@@ -12,7 +13,15 @@ import {
 
 import 'leaflet/dist/leaflet.css';
 
-import AlertCard from './AlertCard';
+import { useMap } from 'react-leaflet';
+
+import AlertDetailModal from './AlertDetailModal';
+
+import { useTheme } from '../../src/context/ThemeContext';
+
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
 
 import type { Alert } from '../../src/types/alert.types';
 
@@ -20,9 +29,22 @@ import type {
   UserCoordinates
 } from '../../src/services/location.service';
 
+import type { AlertVotesSummary } from '../../src/services/vote.service';
+
 import {
-  findAlertById
+  findAlertById,
 } from '../../src/utils/alertRadar.utils';
+
+const ICON_FILES = {
+  fuel: require('../../assets/map-icons/fuel.png'),
+  box: require('../../assets/map-icons/box.png'),
+  mask: require('../../assets/map-icons/mask-red.png'),
+  cone: require('../../assets/map-icons/cone.png'),
+  wrench: require('../../assets/map-icons/wrench.png'),
+  bed: require('../../assets/map-icons/bed.png'),
+  SOS: require('../../assets/map-icons/sos.png'),
+  user: require('../../assets/map-icons/user.png'),
+} as const;
 
 type Props = {
 
@@ -34,25 +56,104 @@ type Props = {
 
   connectionStatus?: import('../../src/types/alert.types').AlertsConnectionStatus;
 
-  onConfirmAlert?: (
-    id: string
-  ) => Promise<void>;
-
-  onResolveAlert?: (
-    id: string
-  ) => Promise<void>;
-
 };
 
-export default function RadarMap({
+type MapAutoFitProps = {
+  userLocation: UserCoordinates;
+  validAlerts: Alert[];
+};
 
+function MapAutoFit({
+  userLocation,
+  validAlerts,
+}: MapAutoFitProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    const points: [number, number][] = [
+      [
+        userLocation.latitude,
+        userLocation.longitude,
+      ],
+      ...validAlerts.map(
+        (alert): [number, number] => [
+          alert.latitude,
+          alert.longitude,
+        ],
+      ),
+    ];
+
+    if (points.length > 1) {
+      map.fitBounds(points, {
+        padding: [50, 50],
+      });
+
+      return;
+    }
+
+    map.setView(
+      [
+        userLocation.latitude,
+        userLocation.longitude,
+      ],
+      15,
+    );
+  }, [
+    map,
+    userLocation,
+    validAlerts,
+  ]);
+
+  return null;
+}
+
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    container: {
+      height: 520,
+      marginTop: 25,
+      borderRadius: 30,
+      overflow: 'hidden',
+      position: 'relative',
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.shadow,
+      shadowOffset: {
+        width: 0,
+        height: 10,
+      },
+      shadowOpacity: 0.35,
+      shadowRadius: 15,
+      elevation: 12,
+    },
+
+    loading: {
+      height: 520,
+      marginTop: 25,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderRadius: 30,
+    },
+
+    loadingText: {
+      fontSize: 16,
+      color: colors.textPrimary,
+    },
+  });
+}
+
+export default function RadarMap({
   alerts = [],
   userLocation,
   routeCoordinates,
-  onConfirmAlert,
-  onResolveAlert
-
 }: Props) {
+
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const [
     leafletMap,
@@ -70,132 +171,95 @@ export default function RadarMap({
   ] = useState(true);
 
   const [
-    selectedAlert,
-    setSelectedAlert
-  ] = useState<Alert | null>(
-    null
+    selectedAlertId,
+    setSelectedAlertId,
+  ] = useState<string | null>(
+    null,
+  );
+
+  const [
+    modalAlert,
+    setModalAlert,
+  ] = useState<Alert | null>(null);
+
+  const selectedAlert = useMemo(() => {
+    if (!selectedAlertId) {
+      return null;
+    }
+
+    if (
+      modalAlert &&
+      modalAlert.id === selectedAlertId
+    ) {
+      return modalAlert;
+    }
+
+    return (
+      findAlertById(
+        alerts,
+        selectedAlertId,
+      ) ?? null
+    );
+  }, [alerts, selectedAlertId, modalAlert]);
+
+  const handleVoteUpdated = useCallback(
+    (summary: AlertVotesSummary) => {
+      setModalAlert((current) => {
+        if (!current) {
+          return current;
+        }
+
+        return {
+          ...current,
+          positiveVotes:
+            summary.totalConfirmations,
+          negativeVotes:
+            summary.totalRejections,
+        };
+      });
+    },
+    [],
   );
 
   useEffect(() => {
+    let cancelled = false;
 
-    initialize();
+    async function initialize() {
+      try {
+        if (
+          typeof window === 'undefined'
+        ) {
+          return;
+        }
 
-  }, []);
+        const L =
+          await import('leaflet');
 
-  useEffect(() => {
+        const reactLeaflet =
+          await import('react-leaflet');
 
-    if (
-      !selectedAlert
-    ) {
-
-      return;
-
-    }
-
-    const updated =
-
-      findAlertById(
-        alerts,
-        selectedAlert.id
-      );
-
-    if (
-      updated
-    ) {
-
-      setSelectedAlert(
-        updated
-      );
-
-      return;
-
-    }
-
-    setSelectedAlert(
-      null
-    );
-
-  }, [
-    alerts,
-    selectedAlert?.id
-  ]);
-
-  async function initialize() {
-
-    try {
-
-      if (
-        typeof window === 'undefined'
-      ) {
-
-        return;
-
+        if (!cancelled) {
+          setLeaflet(L);
+          setLeafletMap(reactLeaflet);
+        }
+      } catch (error) {
+        console.log(
+          'Erro mapa:',
+          error,
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-
-      const L =
-
-        await import(
-          'leaflet'
-        );
-
-      setLeaflet(
-        L
-      );
-
-      const reactLeaflet =
-
-        await import(
-          'react-leaflet'
-        );
-
-      setLeafletMap(
-        reactLeaflet
-      );
-
-    } catch (error) {
-
-      console.log(
-        'Erro mapa:',
-        error
-      );
-
-    } finally {
-
-      setLoading(
-        false
-      );
-
     }
 
-  }
+    void initialize();
 
-  const iconFiles = {
-
-    fuel:
-      require('../../assets/map-icons/fuel.png'),
-
-    box:
-      require('../../assets/map-icons/box.png'),
-
-    mask:
-      require('../../assets/map-icons/mask-red.png'),
-
-    cone:
-      require('../../assets/map-icons/cone.png'),
-
-    wrench:
-      require('../../assets/map-icons/wrench.png'),
-
-    bed:
-      require('../../assets/map-icons/bed.png'),
-
-    SOS:
-      require('../../assets/map-icons/sos.png'),
-
-    user:
-      require('../../assets/map-icons/user.png')
-
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const validAlerts =
 
@@ -263,42 +327,42 @@ export default function RadarMap({
 
         user:
           createIcon(
-            iconFiles.user
+            ICON_FILES.user
           ),
 
         fuel:
           createIcon(
-            iconFiles.fuel
+            ICON_FILES.fuel
           ),
 
         box:
           createIcon(
-            iconFiles.box
+            ICON_FILES.box
           ),
 
         mask:
           createIcon(
-            iconFiles.mask
+            ICON_FILES.mask
           ),
 
         cone:
           createIcon(
-            iconFiles.cone
+            ICON_FILES.cone
           ),
 
         wrench:
           createIcon(
-            iconFiles.wrench
+            ICON_FILES.wrench
           ),
 
         bed:
           createIcon(
-            iconFiles.bed
+            ICON_FILES.bed
           ),
 
         SOS:
           createIcon(
-            iconFiles.SOS
+            ICON_FILES.SOS
           )
 
       };
@@ -328,6 +392,8 @@ export default function RadarMap({
         return icons.box;
 
       case 'full_attack':
+      case 'cargo_theft':
+      case 'cabin_attack':
         return icons.mask;
 
       case 'obstacle':
@@ -382,79 +448,11 @@ export default function RadarMap({
     Marker,
     Popup,
     Polyline,
-    useMap
 
   } = leafletMap;
 
-  function AutoFit() {
-
-    const map =
-      useMap();
-
-    useEffect(() => {
-
-      const points = [
-
-        [
-          userLocation.latitude,
-          userLocation.longitude
-        ],
-
-        ...validAlerts.map(
-
-          alert => ([
-
-            alert.latitude,
-            alert.longitude
-
-          ])
-
-        )
-
-      ];
-
-      if (
-        points.length > 1
-      ) {
-
-        map.fitBounds(
-          points,
-          {
-            padding: [
-              50,
-              50
-            ]
-          }
-        );
-
-      } else {
-
-        map.setView(
-
-          [
-            userLocation.latitude,
-            userLocation.longitude
-          ],
-
-          15
-
-        );
-
-      }
-
-    }, [
-      map,
-      userLocation.latitude,
-      userLocation.longitude,
-      validAlerts
-    ]);
-
-    return null;
-
-  }
-
   return (
-
+    <>
     <View
       style={styles.container}
     >
@@ -470,7 +468,10 @@ export default function RadarMap({
 
       >
 
-        <AutoFit />
+        <MapAutoFit
+          userLocation={userLocation}
+          validAlerts={validAlerts}
+        />
 
         <TileLayer
 
@@ -498,7 +499,7 @@ export default function RadarMap({
 
               pathOptions={{
 
-                color: '#2563eb',
+                color: theme.colors.primary,
                 weight: 4,
                 opacity: 0.85
 
@@ -561,24 +562,15 @@ export default function RadarMap({
                 eventHandlers={{
 
                   click: () => {
-
-                    setSelectedAlert(
-                      alert
+                    setSelectedAlertId(
+                      alert.id,
                     );
-
-                  }
+                    setModalAlert(alert);
+                  },
 
                 }}
 
-              >
-
-                <Popup>
-
-                  🚨 {alert.title}
-
-                </Popup>
-
-              </Marker>
+              />
 
             )
 
@@ -588,133 +580,23 @@ export default function RadarMap({
 
       </MapContainer>
 
-      {
-
-        selectedAlert && (
-
-          <AlertCard
-
-            alert={
-              selectedAlert
-            }
-
-            showAheadDistance={
-              Boolean(
-                routeCoordinates?.length
-              )
-            }
-
-            onConfirm={async () => {
-
-              if (
-                !selectedAlert ||
-                !onConfirmAlert
-              ) {
-                return;
-              }
-
-              await onConfirmAlert(
-                selectedAlert.id
-              );
-
-            }}
-
-            onResolve={async () => {
-
-              if (
-                !selectedAlert ||
-                !onResolveAlert
-              ) {
-                return;
-              }
-
-              await onResolveAlert(
-                selectedAlert.id
-              );
-
-              setSelectedAlert(
-                null
-              );
-
-            }}
-
-            onDetails={() => {
-
-              console.log(
-                selectedAlert
-              );
-
-            }}
-
-          />
-
-        )
-
-      }
-
     </View>
+
+    <AlertDetailModal
+      visible={Boolean(selectedAlert)}
+      alert={selectedAlert}
+      showAheadDistance={Boolean(
+        routeCoordinates?.length,
+      )}
+      onClose={() => {
+        setSelectedAlertId(null);
+        setModalAlert(null);
+      }}
+      onVoted={handleVoteUpdated}
+    />
+
+    </>
 
   );
 
 }
-
-const styles =
-  StyleSheet.create({
-
-    container: {
-
-      height: 520,
-
-      marginTop: 25,
-
-      borderRadius: 30,
-
-      overflow: 'hidden',
-
-      backgroundColor: '#0f172a',
-
-      borderWidth: 1,
-      borderColor: '#1e293b',
-
-      shadowColor: '#000',
-
-      shadowOffset: {
-
-        width: 0,
-        height: 10
-
-      },
-
-      shadowOpacity: 0.35,
-
-      shadowRadius: 15,
-
-      elevation: 12
-
-    },
-
-    loading: {
-
-      height: 520,
-
-      marginTop: 25,
-
-      justifyContent: 'center',
-
-      alignItems: 'center',
-
-      backgroundColor: '#0f172a',
-
-      borderRadius: 30
-
-    },
-
-    loadingText: {
-
-      fontSize: 16,
-
-      color: '#ffffff'
-
-    }
-
-  });

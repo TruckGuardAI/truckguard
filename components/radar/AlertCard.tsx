@@ -6,10 +6,26 @@ import {
   Text,
   StyleSheet,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 
-import { alertsApiService } from '../../src/services/alertsApi.service';
+import { useTranslation } from 'react-i18next';
+
+import AlertCommentsSection from '../../src/components/alerts/AlertCommentsSection';
+
+import AlertVoteButtons from '../../src/components/alerts/AlertVoteButtons';
+
+import {
+  useCreatorReputations,
+} from '../../src/hooks/useCreatorReputations';
+
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
 import { navigationService } from '../../src/services/navigation.service';
+
+import type { AlertVotesSummary } from '../../src/services/vote.service';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
 
 import type {
   Alert,
@@ -20,9 +36,10 @@ import type {
 type Props = {
   alert: Alert | AlertAlongRoute | null;
   showAheadDistance?: boolean;
-  onConfirm: () => void;
-  onResolve: () => void;
-  onDetails: () => void;
+  onClose?: () => void;
+  onVoted?: (
+    summary: AlertVotesSummary,
+  ) => void;
 };
 
 function isAlongRoute(
@@ -31,25 +48,28 @@ function isAlongRoute(
   return 'distanceAheadKm' in alert;
 }
 
-const TYPE_LABELS: Record<AlertType, string> = {
-  fuel: 'Furto combustível',
-  pallet: 'Carga / paletes',
-  full_attack: 'Ataque completo',
-  obstacle: 'Obstáculo na via',
-  mechanic: 'Assistência mecânica',
-  rest: 'Área de descanso',
-  sos: 'Pedido de ajuda SOS',
-};
-
 const TYPE_EMOJI: Record<AlertType, string> = {
   fuel: '⛽',
   pallet: '📦',
   full_attack: '🚨',
+  cargo_theft: '📦',
+  cabin_attack: '🚗',
   obstacle: '🚧',
   mechanic: '🔧',
   rest: '🛌',
   sos: '🆘',
 };
+
+function getAlertTypeLabel(
+  type: AlertType,
+  t: (key: string) => string,
+  fallback: string,
+): string {
+  const key = `radar.alertTypes.${type}`;
+  const translated = t(key);
+
+  return translated === key ? fallback : translated;
+}
 
 function formatDistance(distance: number): string {
   if (!Number.isFinite(distance)) {
@@ -59,49 +79,191 @@ function formatDistance(distance: number): string {
   return `${distance.toFixed(1)}km`;
 }
 
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 18,
+      marginTop: 0,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Platform.select({
+        web: {
+          boxShadow: `0 12px 32px ${colors.shadow}`,
+        },
+        default: {
+          elevation: 8,
+        },
+      }),
+    },
+
+    cardResolved: {
+      opacity: 0.85,
+      borderColor: colors.surfaceSecondary,
+    },
+
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+
+    title: {
+      flex: 1,
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      marginRight: 8,
+    },
+
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surfaceSecondary,
+    },
+
+    closeButtonText: {
+      fontSize: 18,
+      lineHeight: 20,
+      color: colors.textSecondary,
+      fontWeight: '700',
+    },
+
+    resolvedBadge: {
+      backgroundColor: colors.surfaceSecondary,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+
+    resolvedBadgeText: {
+      color: colors.success,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+
+    row: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 6,
+      lineHeight: 20,
+    },
+
+    subtitle: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginTop: 4,
+      marginBottom: 4,
+    },
+
+    navigationActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 10,
+      gap: 8,
+    },
+  });
+}
+
 export default function AlertCard({
   alert,
   showAheadDistance = false,
-  onConfirm: _onConfirm,
-  onResolve: _onResolve,
-  onDetails: _onDetails,
+  onClose,
+  onVoted,
 }: Props): React.ReactElement | null {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
+
+  const { reputations } =
+    useCreatorReputations([
+      alert?.userId,
+    ]);
+
   if (!alert) {
     return null;
   }
 
-  const typeLabel = TYPE_LABELS[alert.type] ?? alert.title;
+  const creatorReputation = alert.userId
+    ? reputations.get(alert.userId)
+    : undefined;
+
+  const typeLabel = getAlertTypeLabel(
+    alert.type,
+    t,
+    alert.title,
+  );
   const typeEmoji = TYPE_EMOJI[alert.type] ?? '🚨';
-  const location = alert.locationName ?? 'A determinar';
+  const location = alert.locationName ?? t('radar.toBeDetermined');
   const distanceText =
     showAheadDistance && isAlongRoute(alert)
-      ? `${alert.distanceAheadKm.toFixed(1)}km à frente`
+      ? t('radar.ahead', {
+          distance: alert.distanceAheadKm.toFixed(1),
+        })
       : formatDistance(alert.distance);
   const isResolved = alert.resolved;
+  const confirmationLabel =
+    alert.confirmations === 1
+      ? t('radar.confirmation')
+      : t('radar.confirmations');
+
+  console.log('LOG_ALERT_CARD_RENDERED', {
+    alertId: alert.id,
+    title: alert.title,
+    latitude: alert.latitude,
+    longitude: alert.longitude,
+    platform: Platform.OS,
+  });
 
   return (
-    <View style={[styles.card, isResolved && styles.cardResolved]}>
+    <View
+      style={[styles.card, isResolved && styles.cardResolved]}
+    >
       <View style={styles.headerRow}>
         <Text style={styles.title}>
           {typeEmoji} {typeLabel}
         </Text>
-        {isResolved && (
-          <View style={styles.resolvedBadge}>
-            <Text style={styles.resolvedBadgeText}>Resolvido</Text>
-          </View>
-        )}
+
+        <View style={styles.headerActions}>
+          {isResolved && (
+            <View style={styles.resolvedBadge}>
+              <Text style={styles.resolvedBadgeText}>
+                {t('radar.resolved')}
+              </Text>
+            </View>
+          )}
+
+          {onClose && (
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.cancel')}
+            >
+              <Text style={styles.closeButtonText}>
+                ×
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <Text style={styles.row}>📍 {location}</Text>
       <Text style={styles.row}>🕒 {alert.time}</Text>
       <Text style={styles.row}>
-        👥 {alert.confirmations}{' '}
-        {alert.confirmations === 1 ? 'confirmação' : 'confirmações'}
-      </Text>
-      <Text style={styles.row}>
-        👍 {alert.positiveVotes}
-        {' '}
-        👎 {alert.negativeVotes}
+        👥 {alert.confirmations} {confirmationLabel}
       </Text>
 
       <Text
@@ -115,30 +277,28 @@ export default function AlertCard({
         <Text style={styles.subtitle}>{alert.title}</Text>
       )}
 
-      <View style={styles.voteActions}>
-        <Button
-          title="👍 CONFIRMAR"
-          onPress={() => {
-            alertsApiService.voteAlert(
-              alert.id,
-              true,
-            );
-          }}
-        />
-        <Button
-          title="👎 NÃO EXISTE"
-          onPress={() => {
-            alertsApiService.voteAlert(
-              alert.id,
-              false,
-            );
-          }}
-        />
-      </View>
+      <AlertVoteButtons
+        key={alert.id}
+        alertId={alert.id}
+        positiveVotes={alert.positiveVotes}
+        negativeVotes={alert.negativeVotes}
+        onVoted={onVoted}
+        creatorReputationScore={
+          creatorReputation?.reputationScore
+        }
+        creatorTrustLevel={
+          creatorReputation?.trustLevel
+        }
+      />
+
+      <AlertCommentsSection
+        alertId={alert.id}
+        context="alert_detail_modal"
+      />
 
       <View style={styles.navigationActions}>
         <Button
-          title="🗺 GOOGLE MAPS"
+          title={t('radar.googleMaps')}
           onPress={() => {
             navigationService.openGoogleMaps(
               alert.latitude,
@@ -147,7 +307,7 @@ export default function AlertCard({
           }}
         />
         <Button
-          title="🗺 WAZE"
+          title={t('radar.waze')}
           onPress={() => {
             navigationService.openWaze(
               alert.latitude,
@@ -159,83 +319,3 @@ export default function AlertCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    padding: 18,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
-      },
-      default: {
-        elevation: 8,
-      },
-    }),
-  },
-
-  cardResolved: {
-    opacity: 0.85,
-    borderColor: '#334155',
-  },
-
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-
-  title: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#f8fafc',
-    marginRight: 8,
-  },
-
-  resolvedBadge: {
-    backgroundColor: '#14532d',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-
-  resolvedBadgeText: {
-    color: '#86efac',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  row: {
-    fontSize: 14,
-    color: '#cbd5e1',
-    marginBottom: 6,
-    lineHeight: 20,
-  },
-
-  subtitle: {
-    fontSize: 13,
-    color: '#94a3b8',
-    marginTop: 4,
-    marginBottom: 4,
-  },
-
-  voteActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    gap: 8,
-  },
-
-  navigationActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    gap: 8,
-  },
-});

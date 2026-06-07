@@ -2,8 +2,19 @@ import { Platform } from 'react-native';
 
 import * as Notifications from 'expo-notifications';
 
+import type { AlertNotificationPriority } from '../types/alertNotification.types';
+
+import {
+  getAndroidChannelId,
+} from './alertPriority.service';
+
+import { ensureAlertNotificationChannels } from './alertNotificationChannels.service';
+
+import { notificationService } from './notification.service';
+
 type NotificationOptions = {
   highPriority?: boolean;
+  priority?: AlertNotificationPriority;
 };
 
 Notifications.setNotificationHandler({
@@ -20,22 +31,7 @@ class NotificationsService {
 
   async requestPermissions(): Promise<boolean> {
     try {
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync(
-          'truckguard-alerts',
-          {
-            name: 'TruckGuard Alerts',
-            importance: Notifications.AndroidImportance.MAX,
-            vibrationPattern: [
-              0,
-              250,
-              250,
-              250,
-            ],
-            sound: true,
-          },
-        );
-      }
+      await ensureAlertNotificationChannels();
 
       const current =
         await Notifications.getPermissionsAsync();
@@ -72,6 +68,13 @@ class NotificationsService {
     options: NotificationOptions = {},
   ): Promise<void> {
     try {
+      if (
+        !notificationService.isNotificationsEnabled() ||
+        !notificationService.isCommunityAlertsEnabled()
+      ) {
+        return;
+      }
+
       if (!this.permissionsRequested) {
         const granted =
           await this.requestPermissions();
@@ -81,14 +84,31 @@ class NotificationsService {
         }
       }
 
+      const priority =
+        options.priority ??
+        (options.highPriority
+          ? 'CRITICAL'
+          : 'HIGH');
+
+      const channelId =
+        getAndroidChannelId(priority);
+
+      const androidPriority =
+        priority === 'CRITICAL'
+          ? Notifications.AndroidNotificationPriority.MAX
+          : priority === 'HIGH'
+            ? Notifications.AndroidNotificationPriority.HIGH
+            : Notifications.AndroidNotificationPriority.DEFAULT;
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
           sound: true,
-          priority: options.highPriority
-            ? Notifications.AndroidNotificationPriority.MAX
-            : Notifications.AndroidNotificationPriority.HIGH,
+          priority: androidPriority,
+          ...(Platform.OS === 'android'
+            ? { channelId }
+            : {}),
         },
         trigger: null,
       });

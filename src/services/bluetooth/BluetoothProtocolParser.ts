@@ -6,6 +6,8 @@
  * Esta classe tem apenas uma responsabilidade: parsear protocolos Bluetooth
  */
 
+import { Buffer } from 'buffer';
+
 import {
   BluetoothError,
   type ESP32BluetoothPayload,
@@ -33,7 +35,6 @@ export class BluetoothProtocolParser {
   decodeBase64(base64Data: string): string {
     try {
       // React Native tem Buffer global (via polyfill)
-      const { Buffer } = require('buffer');
       return Buffer.from(base64Data, 'base64').toString('utf-8');
     } catch (error) {
       throw new BluetoothError(

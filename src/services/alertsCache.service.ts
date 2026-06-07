@@ -9,19 +9,9 @@ export type PendingMutation =
   | {
       id: string;
       kind: 'create';
+      /** ID temporário `local-*` criado offline para substituição após sync. */
+      localAlertId?: string;
       payload: CreateAlertInput;
-      createdAt: string;
-    }
-  | {
-      id: string;
-      kind: 'confirm';
-      alertId: string;
-      createdAt: string;
-    }
-  | {
-      id: string;
-      kind: 'resolve';
-      alertId: string;
       createdAt: string;
     }
   | {

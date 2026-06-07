@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+
+import { useTranslation } from 'react-i18next';
 
 import {
   View,
@@ -9,36 +11,122 @@ import {
 
 import GradientBackground from '../../components/ui/GradientBackground';
 
-const alerts = [
-  {
-    id: 1,
-    type: 'Roubo reportado',
-    location: 'BR-116 • Km 220',
-    time: '2 minutos atrás',
-    color: '#DC2626',
-    icon: '🚨',
-  },
+import { useTheme } from '../../src/context/ThemeContext';
 
-  {
-    id: 2,
-    type: 'Área perigosa',
-    location: 'Posto abandonado',
-    time: '12 minutos atrás',
-    color: '#F59E0B',
-    icon: '⚠️',
-  },
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
 
-  {
-    id: 3,
-    type: 'Área segura',
-    location: 'Pátio monitorado',
-    time: '20 minutos atrás',
-    color: '#16A34A',
-    icon: '🛡️',
-  },
-];
+import type { AppThemeTokens } from '../../src/theme/palettes';
+
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      padding: 24,
+      paddingTop: 60,
+    },
+
+    title: {
+      color: colors.textPrimary,
+      fontSize: 36,
+      fontWeight: '900',
+      marginBottom: 10,
+    },
+
+    subtitle: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      marginBottom: 34,
+    },
+
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 28,
+      padding: 22,
+      marginBottom: 22,
+      borderLeftWidth: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+
+    iconWrapper: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 18,
+    },
+
+    icon: {
+      fontSize: 30,
+    },
+
+    content: {
+      flex: 1,
+    },
+
+    cardTitle: {
+      color: colors.textPrimary,
+      fontSize: 24,
+      fontWeight: '800',
+      marginBottom: 8,
+    },
+
+    location: {
+      color: colors.textSecondary,
+      fontSize: 17,
+      marginBottom: 8,
+    },
+
+    time: {
+      color: colors.textMuted,
+      fontSize: 15,
+    },
+  });
+}
 
 export default function AlertsScreen() {
+  const { t } = useTranslation();
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  const alerts = useMemo(
+    () => [
+      {
+        id: 1,
+        type: t('alertsScreen.theftReported'),
+        location: 'BR-116 • Km 220',
+        time: t('alertsScreen.minutesAgo', { count: 2 }),
+        color: theme.colors.danger,
+        icon: '🚨',
+      },
+      {
+        id: 2,
+        type: t('alertsScreen.dangerousArea'),
+        location: 'Posto abandonado',
+        time: t('alertsScreen.minutesAgo', { count: 12 }),
+        color: theme.colors.warning,
+        icon: '⚠️',
+      },
+      {
+        id: 3,
+        type: t('alertsScreen.safeArea'),
+        location: 'Pátio monitorado',
+        time: t('alertsScreen.minutesAgo', { count: 20 }),
+        color: theme.colors.success,
+        icon: '🛡️',
+      },
+    ],
+    [t, theme.colors.danger, theme.colors.warning, theme.colors.success],
+  );
+
   return (
     <GradientBackground>
       <ScrollView
@@ -46,11 +134,11 @@ export default function AlertsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.title}>
-          Alertas Inteligentes
+          {t('alertsScreen.title')}
         </Text>
 
         <Text style={styles.subtitle}>
-          Informações em tempo real da comunidade
+          {t('alertsScreen.subtitle')}
         </Text>
 
         {alerts.map((alert) => (
@@ -99,88 +187,3 @@ export default function AlertsScreen() {
     </GradientBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-    paddingTop: 60,
-  },
-
-  title: {
-    color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: '900',
-    marginBottom: 10,
-  },
-
-  subtitle: {
-    color: '#94A3B8',
-    fontSize: 16,
-    marginBottom: 34,
-  },
-
-  card: {
-    backgroundColor:
-      'rgba(15,23,42,0.92)',
-
-    borderRadius: 28,
-
-    padding: 22,
-
-    marginBottom: 22,
-
-    borderLeftWidth: 6,
-
-    borderWidth: 1,
-
-    borderColor:
-      'rgba(255,255,255,0.05)',
-
-    boxShadow:
-      '0px 0px 25px rgba(0,0,0,0.25)',
-  },
-
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  iconWrapper: {
-    width: 64,
-    height: 64,
-
-    borderRadius: 20,
-
-    justifyContent: 'center',
-    alignItems: 'center',
-
-    marginRight: 18,
-  },
-
-  icon: {
-    fontSize: 30,
-  },
-
-  content: {
-    flex: 1,
-  },
-
-  cardTitle: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-
-  location: {
-    color: '#CBD5E1',
-    fontSize: 17,
-    marginBottom: 8,
-  },
-
-  time: {
-    color: '#64748B',
-    fontSize: 15,
-  },
-});

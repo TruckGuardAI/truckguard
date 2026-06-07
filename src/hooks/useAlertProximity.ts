@@ -6,7 +6,14 @@ import {
 } from 'react-native';
 
 import type { Alert as TruckAlert } from '../types/alert.types';
+
+import type { AlertNotificationPriority } from '../types/alertNotification.types';
+
 import type { UserCoordinates } from '../services/location.service';
+
+import {
+  buildAlertNotificationConfig,
+} from '../services/alertPriority.service';
 
 import {
   locationService,
@@ -20,10 +27,6 @@ type ProximityLevel =
   | 'visual'
   | 'sound'
   | 'siren';
-
-const VISUAL_DISTANCE_KM = 5;
-const SOUND_DISTANCE_KM = 2;
-const SIREN_DISTANCE_KM = 0.5;
 
 function buildKey(
   alertId: string,
@@ -51,6 +54,55 @@ function isValidAlert(
   );
 }
 
+function resolvePriority(
+  alert: TruckAlert,
+): AlertNotificationPriority {
+  if (
+    alert.notificationPriority ===
+      'CRITICAL' ||
+    alert.notificationPriority ===
+      'HIGH' ||
+    alert.notificationPriority ===
+      'NORMAL'
+  ) {
+    return alert.notificationPriority;
+  }
+
+  return buildAlertNotificationConfig(
+    alert.type,
+  ).priority;
+}
+
+function getProximityThresholds(
+  priority: AlertNotificationPriority,
+): {
+  visualKm: number;
+  soundKm: number;
+  sirenKm: number;
+} {
+  if (priority === 'CRITICAL') {
+    return {
+      visualKm: 5,
+      soundKm: 2,
+      sirenKm: 0.5,
+    };
+  }
+
+  if (priority === 'HIGH') {
+    return {
+      visualKm: 4,
+      soundKm: 1.5,
+      sirenKm: 0.75,
+    };
+  }
+
+  return {
+    visualKm: 3,
+    soundKm: 1,
+    sirenKm: 1.5,
+  };
+}
+
 export function useAlertProximity(
   alerts: TruckAlert[],
   userLocation: UserCoordinates,
@@ -72,6 +124,14 @@ export function useAlertProximity(
         return;
       }
 
+      const priority =
+        resolvePriority(alert);
+
+      const thresholds =
+        getProximityThresholds(
+          priority,
+        );
+
       const distanceKm =
         locationService.calculateDistanceKm(
           userLocation.latitude,
@@ -80,81 +140,125 @@ export function useAlertProximity(
           alert.longitude,
         );
 
-      if (distanceKm <= SIREN_DISTANCE_KM) {
-        if (triggeredRef.current.has(buildKey(alert.id, 'siren'))) {
+      if (
+        distanceKm <= thresholds.sirenKm
+      ) {
+        if (
+          triggeredRef.current.has(
+            buildKey(alert.id, 'siren'),
+          )
+        ) {
           return;
         }
 
-        triggeredRef.current.add(buildKey(alert.id, 'siren'));
+        triggeredRef.current.add(
+          buildKey(alert.id, 'siren'),
+        );
 
         console.log(
           'PROXIMITY_SIREN',
           alert.title,
-          distanceKm
+          distanceKm,
+          priority,
         );
 
         void notificationsService.showAlertNotification(
-          'Sirene TruckGuard',
+          priority === 'CRITICAL'
+            ? 'Alerta CRÍTICO TruckGuard'
+            : 'Sirene TruckGuard',
           `${alert.title} a ${distanceKm.toFixed(1)} km`,
           {
-            highPriority: true,
+            priority,
           },
         );
 
-        Vibration.vibrate([
-          0,
-          700,
-          200,
-          700,
-          200,
-          1000,
-        ]);
-      } else if (distanceKm <= SOUND_DISTANCE_KM) {
-        if (triggeredRef.current.has(buildKey(alert.id, 'sound'))) {
+        if (priority === 'CRITICAL') {
+          Vibration.vibrate([
+            0,
+            500,
+            200,
+            500,
+            200,
+            500,
+          ]);
+        } else {
+          Vibration.vibrate([
+            0,
+            250,
+            150,
+            250,
+          ]);
+        }
+      } else if (
+        distanceKm <= thresholds.soundKm
+      ) {
+        if (
+          triggeredRef.current.has(
+            buildKey(alert.id, 'sound'),
+          )
+        ) {
           return;
         }
 
-        triggeredRef.current.add(buildKey(alert.id, 'sound'));
+        triggeredRef.current.add(
+          buildKey(alert.id, 'sound'),
+        );
 
         console.log(
           'PROXIMITY_SOUND',
           alert.title,
-          distanceKm
+          distanceKm,
+          priority,
         );
 
         void notificationsService.showAlertNotification(
           'Alerta TruckGuard',
           `${alert.title} a ${distanceKm.toFixed(1)} km`,
+          { priority },
         );
 
-        Vibration.vibrate([
-          0,
-          250,
-          150,
-          250,
-        ]);
-      } else if (distanceKm <= VISUAL_DISTANCE_KM) {
-        if (triggeredRef.current.has(buildKey(alert.id, 'visual'))) {
+        if (priority !== 'NORMAL') {
+          Vibration.vibrate([
+            0,
+            250,
+            150,
+            250,
+          ]);
+        }
+      } else if (
+        distanceKm <= thresholds.visualKm
+      ) {
+        if (
+          triggeredRef.current.has(
+            buildKey(alert.id, 'visual'),
+          )
+        ) {
           return;
         }
 
-        triggeredRef.current.add(buildKey(alert.id, 'visual'));
+        triggeredRef.current.add(
+          buildKey(alert.id, 'visual'),
+        );
 
         console.log(
           'PROXIMITY_VISUAL',
           alert.title,
-          distanceKm
+          distanceKm,
+          priority,
         );
 
         void notificationsService.showAlertNotification(
           'Alerta próximo',
           `${alert.title} a ${distanceKm.toFixed(1)} km`,
+          { priority },
         );
 
-        Alert.alert(
-          'Alerta próximo',
-          `${alert.title} a ${distanceKm.toFixed(1)} km`,
-        );
+        if (priority === 'CRITICAL') {
+          Alert.alert(
+            'Alerta CRÍTICO próximo',
+            `${alert.title} a ${distanceKm.toFixed(1)} km`,
+          );
+        }
       }
     });
   }, [

@@ -1,4 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useMemo,
+  useState,
+} from 'react';
 import {
   View,
   Text,
@@ -7,11 +11,18 @@ import {
   TouchableOpacity,
 } from 'react-native';
 
-import AlertCard from './AlertCard';
+import { useTranslation } from 'react-i18next';
+
+import AlertDetailModal from './AlertDetailModal';
+
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
 
 import type { Alert } from '../../src/types/alert.types';
 import type { UserCoordinates } from '../../src/services/location.service';
 
+import type { AlertVotesSummary } from '../../src/services/vote.service';
 import { findAlertById } from '../../src/utils/alertRadar.utils';
 
 type Props = {
@@ -19,35 +30,127 @@ type Props = {
   userLocation: UserCoordinates;
   routeCoordinates?: import('../../src/types/route.types').RouteCoordinate[];
   connectionStatus?: import('../../src/types/alert.types').AlertsConnectionStatus;
-  onConfirmAlert?: (id: string) => Promise<void>;
-  onResolveAlert?: (id: string) => Promise<void>;
 };
+
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    container: {
+      height: 520,
+      marginTop: 25,
+      borderRadius: 30,
+      overflow: 'hidden',
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+    },
+
+    title: {
+      color: colors.textPrimary,
+      fontSize: 22,
+      fontWeight: '700',
+      marginBottom: 12,
+    },
+
+    locationBox: {
+      backgroundColor: colors.surfaceSecondary,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 12,
+    },
+
+    locationText: {
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+
+    alertsContainer: {
+      flex: 1,
+    },
+
+    alertItem: {
+      backgroundColor: colors.surfaceSecondary,
+      padding: 12,
+      borderRadius: 12,
+      marginBottom: 8,
+    },
+
+    alertTitle: {
+      color: colors.textPrimary,
+      fontWeight: '700',
+    },
+
+    alertType: {
+      color: colors.primary,
+      marginTop: 4,
+    },
+
+    alertCoords: {
+      color: colors.textMuted,
+      marginTop: 4,
+      fontSize: 12,
+    },
+  });
+}
 
 export default function RadarMap({
   alerts = [],
   userLocation,
   routeCoordinates = [],
-  onConfirmAlert,
-  onResolveAlert,
 }: Props) {
-  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
 
-  useEffect(() => {
-    if (!selectedAlert) {
-      return;
+  const [
+    selectedAlertId,
+    setSelectedAlertId,
+  ] = useState<string | null>(null);
+
+  const [
+    modalAlert,
+    setModalAlert,
+  ] = useState<Alert | null>(null);
+
+  const selectedAlert = useMemo(() => {
+    if (!selectedAlertId) {
+      return null;
     }
 
-    const updatedAlert = findAlertById(
-      alerts,
-      selectedAlert.id
+    if (
+      modalAlert &&
+      modalAlert.id === selectedAlertId
+    ) {
+      return modalAlert;
+    }
+
+    return (
+      findAlertById(
+        alerts,
+        selectedAlertId,
+      ) ?? null
     );
+  }, [alerts, selectedAlertId, modalAlert]);
 
-    if (updatedAlert) {
-      setSelectedAlert(updatedAlert);
-    } else {
-      setSelectedAlert(null);
-    }
-  }, [alerts, selectedAlert]);
+  const handleVoteUpdated = useCallback(
+    (summary: AlertVotesSummary) => {
+      setModalAlert((current) => {
+        if (!current) {
+          return current;
+        }
+
+        return {
+          ...current,
+          positiveVotes:
+            summary.totalConfirmations,
+          negativeVotes:
+            summary.totalRejections,
+        };
+      });
+    },
+    [],
+  );
 
   const validAlerts = useMemo(() => {
     return alerts.filter((alert) => {
@@ -70,26 +173,27 @@ export default function RadarMap({
   }
 
   return (
+    <>
     <View style={styles.container}>
       <Text style={styles.title}>
-        Radar Comunitário
+        {t('radar.communityRadar')}
       </Text>
 
       <View style={styles.locationBox}>
         <Text style={styles.locationText}>
-          Latitude: {userLocation.latitude.toFixed(6)}
+          {t('radar.latitude')} {userLocation.latitude.toFixed(6)}
         </Text>
 
         <Text style={styles.locationText}>
-          Longitude: {userLocation.longitude.toFixed(6)}
+          {t('radar.longitude')} {userLocation.longitude.toFixed(6)}
         </Text>
 
         <Text style={styles.locationText}>
-          Alertas ativos: {validAlerts.length}
+          {t('radar.activeAlerts')} {validAlerts.length}
         </Text>
 
         <Text style={styles.locationText}>
-          Pontos da rota: {routeCoordinates.length}
+          {t('radar.routePoints')} {routeCoordinates.length}
         </Text>
       </View>
 
@@ -101,7 +205,10 @@ export default function RadarMap({
           <TouchableOpacity
             key={alert.id}
             style={styles.alertItem}
-            onPress={() => setSelectedAlert(alert)}
+            onPress={() => {
+              setSelectedAlertId(alert.id);
+              setModalAlert(alert);
+            }}
           >
             <Text style={styles.alertTitle}>
               {alert.title}
@@ -119,107 +226,20 @@ export default function RadarMap({
           </TouchableOpacity>
         ))}
       </ScrollView>
-
-      {selectedAlert && (
-        <AlertCard
-          alert={selectedAlert}
-          showAheadDistance={routeCoordinates.length > 0}
-          onConfirm={async () => {
-            if (!onConfirmAlert) {
-              return;
-            }
-
-            try {
-              await onConfirmAlert(selectedAlert.id);
-            } catch (error) {
-              console.error(
-                'Erro ao confirmar alerta:',
-                error
-              );
-            }
-          }}
-          onResolve={async () => {
-            if (!onResolveAlert) {
-              return;
-            }
-
-            try {
-              await onResolveAlert(selectedAlert.id);
-              setSelectedAlert(null);
-            } catch (error) {
-              console.error(
-                'Erro ao resolver alerta:',
-                error
-              );
-            }
-          }}
-          onDetails={() => {
-            console.log(
-              'Detalhes alerta:',
-              selectedAlert
-            );
-          }}
-        />
-      )}
     </View>
+
+    <AlertDetailModal
+      visible={Boolean(selectedAlert)}
+      alert={selectedAlert}
+      showAheadDistance={
+        routeCoordinates.length > 0
+      }
+      onClose={() => {
+        setSelectedAlertId(null);
+        setModalAlert(null);
+      }}
+      onVoted={handleVoteUpdated}
+    />
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    height: 520,
-    marginTop: 25,
-    borderRadius: 30,
-    overflow: 'hidden',
-    backgroundColor: '#0f172a',
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    padding: 16,
-  },
-
-  title: {
-    color: '#ffffff',
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-
-  locationBox: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-
-  locationText: {
-    color: '#cbd5e1',
-    marginBottom: 4,
-  },
-
-  alertsContainer: {
-    flex: 1,
-  },
-
-  alertItem: {
-    backgroundColor: '#111827',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-
-  alertTitle: {
-    color: '#ffffff',
-    fontWeight: '700',
-  },
-
-  alertType: {
-    color: '#f97316',
-    marginTop: 4,
-  },
-
-  alertCoords: {
-    color: '#94a3b8',
-    marginTop: 4,
-    fontSize: 12,
-  },
-});

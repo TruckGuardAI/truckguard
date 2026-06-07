@@ -1,187 +1,275 @@
 import React, { useState } from 'react';
 
+import { useTranslation } from 'react-i18next';
+
 import {
-View,
-Text,
-StyleSheet,
-ScrollView,
-Switch
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Switch,
+  TouchableOpacity,
 } from 'react-native';
 
-export default function ConfigScreen(){
+import { AboutModal } from '../../src/components/about/AboutModal';
 
-const [notifications,setNotifications]=useState(true);
+import { LanguageModal } from '../../src/components/i18n/LanguageModal';
 
-const [darkMode,setDarkMode]=useState(true);
+import { useNotificationPreferences } from '../../src/context/NotificationPreferencesContext';
 
-const [community,setCommunity]=useState(true);
+import { useTheme } from '../../src/context/ThemeContext';
 
-return(
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
 
-<View style={styles.container}>
+import type { AppThemeTokens } from '../../src/theme/palettes';
 
-<ScrollView
-showsVerticalScrollIndicator={false}
->
+type ConfigScreenProps = {
+  embedded?: boolean;
+};
 
-<Text style={styles.title}>
-Configurações
-</Text>
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
 
-<Text style={styles.subtitle}>
-Personalize sua experiência
-</Text>
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+      padding: 20,
+    },
 
-<View style={styles.card}>
+    title: {
+      fontSize: 32,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+      marginTop: 50,
+    },
 
-<Text style={styles.section}>
-Preferências
-</Text>
+    subtitle: {
+      color: colors.textSecondary,
+      marginBottom: 25,
+    },
 
-<View style={styles.row}>
+    card: {
+      backgroundColor: colors.card,
+      padding: 20,
+      borderRadius: 25,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-<Text style={styles.label}>
-🔔 Notificações
-</Text>
+    section: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+      marginBottom: 20,
+    },
 
-<Switch
-value={notifications}
-onValueChange={setNotifications}
-/>
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 25,
+    },
 
-</View>
+    item: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 25,
+    },
 
-<View style={styles.row}>
+    label: {
+      fontSize: 16,
+      color: colors.textPrimary,
+    },
 
-<Text style={styles.label}>
-🌙 Modo escuro
-</Text>
-
-<Switch
-value={darkMode}
-onValueChange={setDarkMode}
-/>
-
-</View>
-
-<View style={styles.row}>
-
-<Text style={styles.label}>
-👥 Alertas da comunidade
-</Text>
-
-<Switch
-value={community}
-onValueChange={setCommunity}
-/>
-
-</View>
-
-</View>
-
-<View style={styles.card}>
-
-<Text style={styles.section}>
-Aplicativo
-</Text>
-
-<View style={styles.item}>
-<Text style={styles.label}>
-🌍 Idioma
-</Text>
-
-<Text style={styles.value}>
-Português
-</Text>
-
-</View>
-
-<View style={styles.item}>
-<Text style={styles.label}>
-📱 Versão
-</Text>
-
-<Text style={styles.value}>
-1.0.0
-</Text>
-
-</View>
-
-<View style={styles.item}>
-<Text style={styles.label}>
-ℹ Sobre
-</Text>
-
-<Text style={styles.value}>
-TruckGuard
-</Text>
-
-</View>
-
-</View>
-
-</ScrollView>
-
-</View>
-
-)
-
+    value: {
+      color: colors.textSecondary,
+    },
+  });
 }
 
-const styles=StyleSheet.create({
+export default function ConfigScreen({
+  embedded = false,
+}: ConfigScreenProps) {
+  const { t, i18n } = useTranslation();
 
-container:{
-flex:1,
-backgroundColor:'#020617',
-padding:20
-},
+  const {
+    notificationEnabled,
+    communityAlertsEnabled,
+    toggleNotifications,
+    toggleCommunityAlerts,
+  } = useNotificationPreferences();
 
-title:{
-fontSize:32,
-fontWeight:'bold',
-color:'#fff',
-marginTop:50
-},
+  const [
+    languageModalVisible,
+    setLanguageModalVisible,
+  ] = useState(false);
 
-subtitle:{
-color:'#94a3b8',
-marginBottom:25
-},
+  const [
+    aboutModalVisible,
+    setAboutModalVisible,
+  ] = useState(false);
 
-card:{
-backgroundColor:'#0f172a',
-padding:20,
-borderRadius:25,
-marginBottom:20
-},
+  const {
+    isDark,
+    toggleTheme,
+    theme,
+  } = useTheme();
 
-section:{
-fontSize:18,
-fontWeight:'bold',
-color:'#fff',
-marginBottom:20
-},
+  const styles = useThemedStyles(createStyles);
 
-row:{
-flexDirection:'row',
-justifyContent:'space-between',
-alignItems:'center',
-marginBottom:25
-},
+  const currentLanguageLabel = t(
+    `languages.${i18n.language}`,
+    { defaultValue: t('languages.pt') },
+  );
 
-item:{
-flexDirection:'row',
-justifyContent:'space-between',
-marginBottom:25
-},
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+      >
+        {!embedded ? (
+          <>
+            <Text style={styles.title}>
+              {t('config.title')}
+            </Text>
 
-label:{
-fontSize:16,
-color:'#fff'
-},
+            <Text style={styles.subtitle}>
+              {t('config.subtitle')}
+            </Text>
+          </>
+        ) : null}
 
-value:{
-color:'#94a3b8'
+        <View style={styles.card}>
+          <Text style={styles.section}>
+            {t('config.preferences')}
+          </Text>
+
+          <View style={styles.row}>
+            <Text style={styles.label}>
+              🔔 {t('config.notifications')}
+            </Text>
+
+            <Switch
+              value={notificationEnabled}
+              onValueChange={() => {
+                void toggleNotifications();
+              }}
+              trackColor={{
+                false:
+                  theme.components
+                    .inputBackground,
+                true: theme.colors.primary,
+              }}
+            />
+          </View>
+
+          <View style={styles.row}>
+            <Text style={styles.label}>
+              {isDark ? '🌙' : '☀️'}{' '}
+              {isDark
+                ? t('config.darkMode')
+                : t('config.lightMode')}
+            </Text>
+
+            <Switch
+              value={isDark}
+              onValueChange={() => {
+                void toggleTheme();
+              }}
+              trackColor={{
+                false:
+                  theme.components
+                    .inputBackground,
+                true: theme.colors.primary,
+              }}
+            />
+          </View>
+
+          <View style={styles.row}>
+            <Text style={styles.label}>
+              👥 {t('config.communityAlerts')}
+            </Text>
+
+            <Switch
+              value={communityAlertsEnabled}
+              onValueChange={() => {
+                void toggleCommunityAlerts();
+              }}
+              trackColor={{
+                false:
+                  theme.components
+                    .inputBackground,
+                true: theme.colors.primary,
+              }}
+            />
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.section}>
+            {t('config.app')}
+          </Text>
+
+          <TouchableOpacity
+            style={styles.item}
+            onPress={() => {
+              setLanguageModalVisible(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.label}>
+              🌍 {t('config.language')}
+            </Text>
+
+            <Text style={styles.value}>
+              {currentLanguageLabel}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={styles.item}>
+            <Text style={styles.label}>
+              📱 {t('config.version')}
+            </Text>
+
+            <Text style={styles.value}>
+              {t('common.version')}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.item}
+            onPress={() => {
+              setAboutModalVisible(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.label}>
+              ℹ {t('config.about')}
+            </Text>
+
+            <Text style={styles.value}>
+              {t('common.brand')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      <LanguageModal
+        visible={languageModalVisible}
+        onClose={() => {
+          setLanguageModalVisible(false);
+        }}
+      />
+
+      <AboutModal
+        visible={aboutModalVisible}
+        onClose={() => {
+          setAboutModalVisible(false);
+        }}
+      />
+    </View>
+  );
 }
-
-});

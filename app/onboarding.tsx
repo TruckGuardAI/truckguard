@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { useTranslation } from 'react-i18next';
+
 import {
   View,
   Text,
@@ -13,105 +15,77 @@ import {
 
 import GradientBackground from '../components/ui/GradientBackground';
 
+import { useThemedStyles } from '../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../src/theme/palettes';
+
+function createStyles(theme: AppThemeTokens) {
+  const { colors, components } = theme;
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: 30,
+    },
+
+    title: {
+      color: colors.textPrimary,
+      fontSize: 34,
+      fontWeight: '800',
+      marginBottom: 20,
+    },
+
+    subtitle: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      lineHeight: 24,
+      marginBottom: 40,
+    },
+
+    button: {
+      backgroundColor: components.buttonPrimaryBg,
+      paddingVertical: 18,
+      borderRadius: 14,
+      alignItems: 'center',
+    },
+
+    buttonText: {
+      color: components.buttonPrimaryText,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+  });
+}
+
 export default function OnboardingScreen() {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
 
   function handleStart() {
-
-    router.replace(
-      '/login'
-    );
-
+    router.replace('/login');
   }
 
   return (
-
     <GradientBackground>
-
       <View style={styles.container}>
-
         <Text style={styles.title}>
-          Comunidade que protege caminhoneiros
+          {t('onboarding.title')}
         </Text>
 
         <Text style={styles.subtitle}>
-          Alertas em tempo real, segurança e informações da estrada.
+          {t('onboarding.subtitle')}
         </Text>
 
         <TouchableOpacity
           style={styles.button}
           onPress={handleStart}
         >
-
           <Text style={styles.buttonText}>
-            Vamos começar
+            {t('onboarding.start')}
           </Text>
-
         </TouchableOpacity>
-
       </View>
-
     </GradientBackground>
-
   );
-
 }
-
-const styles = StyleSheet.create({
-
-  container: {
-
-    flex: 1,
-
-    justifyContent: 'center',
-
-    padding: 30,
-
-  },
-
-  title: {
-
-    color: '#ffffff',
-
-    fontSize: 34,
-
-    fontWeight: '800',
-
-    marginBottom: 20,
-
-  },
-
-  subtitle: {
-
-    color: '#94a3b8',
-
-    fontSize: 16,
-
-    lineHeight: 24,
-
-    marginBottom: 40,
-
-  },
-
-  button: {
-
-    backgroundColor: '#f97316',
-
-    paddingVertical: 18,
-
-    borderRadius: 14,
-
-    alignItems: 'center',
-
-  },
-
-  buttonText: {
-
-    color: '#ffffff',
-
-    fontWeight: '700',
-
-    fontSize: 16,
-
-  },
-
-});

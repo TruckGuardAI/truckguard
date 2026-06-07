@@ -6,15 +6,95 @@ import {
   StyleSheet,
 } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
+
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
+
 import type { AreaRiskResult } from '../../src/types/risk.types';
 
 type Props = {
   areaRisk: AreaRiskResult;
 };
 
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      borderWidth: 2,
+      padding: 16,
+      marginBottom: 12,
+    },
+
+    zoneLabel: {
+      color: colors.textPrimary,
+      fontSize: 16,
+      fontWeight: '800',
+      marginBottom: 12,
+    },
+
+    riskRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+
+    riskLabel: {
+      color: colors.textMuted,
+      fontSize: 15,
+      fontWeight: '600',
+      marginRight: 8,
+    },
+
+    riskValue: {
+      fontSize: 18,
+      fontWeight: '800',
+    },
+
+    scoreRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 14,
+    },
+
+    scoreLabel: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: '600',
+      marginRight: 8,
+    },
+
+    scoreValue: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+
+    reasonsTitle: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 8,
+    },
+
+    reasonItem: {
+      color: colors.textMuted,
+      fontSize: 13,
+      lineHeight: 20,
+      marginBottom: 4,
+    },
+  });
+}
+
 export default function RiskCard({
   areaRisk,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
   const { display, score, reasons } = areaRisk;
 
   const reasonLines = useMemo(
@@ -24,10 +104,10 @@ export default function RiskCard({
         : [
             {
               id: 'none',
-              text: 'Sem fatores de risco relevantes',
+              text: t('radar.noRiskFactors'),
             },
           ],
-    [reasons],
+    [reasons, t],
   );
 
   return (
@@ -37,10 +117,14 @@ export default function RiskCard({
         { borderColor: display.color },
       ]}
     >
-      <Text style={styles.zoneLabel}>⚠️ Zona atual</Text>
+      <Text style={styles.zoneLabel}>
+        {t('radar.currentZone')}
+      </Text>
 
       <View style={styles.riskRow}>
-        <Text style={styles.riskLabel}>Risco:</Text>
+        <Text style={styles.riskLabel}>
+          {t('radar.risk')}
+        </Text>
         <Text
           style={[
             styles.riskValue,
@@ -52,14 +136,16 @@ export default function RiskCard({
       </View>
 
       <View style={styles.scoreRow}>
-        <Text style={styles.scoreLabel}>Pontuação:</Text>
+        <Text style={styles.scoreLabel}>
+          {t('radar.scoreLabel')}
+        </Text>
         <Text style={styles.scoreValue}>
-          {score}/100
+          {t('radar.scoreOf100', { score })}
         </Text>
       </View>
 
       <Text style={styles.reasonsTitle}>
-        Principais motivos:
+        {t('radar.mainReasons')}
       </Text>
 
       {reasonLines.map((reason) => (
@@ -70,71 +156,3 @@ export default function RiskCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    borderWidth: 2,
-    padding: 16,
-    marginBottom: 12,
-  },
-
-  zoneLabel: {
-    color: '#f8fafc',
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 12,
-  },
-
-  riskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-
-  riskLabel: {
-    color: '#94a3b8',
-    fontSize: 15,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-
-  riskValue: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-
-  scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-
-  scoreLabel: {
-    color: '#94a3b8',
-    fontSize: 14,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-
-  scoreValue: {
-    color: '#e2e8f0',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
-  reasonsTitle: {
-    color: '#cbd5e1',
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-
-  reasonItem: {
-    color: '#94a3b8',
-    fontSize: 13,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-});

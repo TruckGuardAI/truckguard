@@ -1,9 +1,12 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as Linking from 'expo-linking';
+
+import { Platform } from 'react-native';
 
 import { Session, User } from '@supabase/supabase-js';
 
-import { supabase } from '../lib/supabase';
+import { logSupabaseUser, supabase } from '../lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -35,6 +38,16 @@ function getAuthParams(url: string): OAuthParams {
       searchParams.get('error_description') ??
       searchParams.get('error'),
   };
+}
+
+function getGoogleRedirectUri(): string {
+  if (Platform.OS === 'web') {
+    return AuthSession.makeRedirectUri({
+      path: 'login-callback',
+    });
+  }
+
+  return Linking.createURL('login-callback');
 }
 
 class AuthService {
@@ -79,6 +92,8 @@ class AuthService {
         data.user?.email
       );
 
+      await logSupabaseUser();
+
       return data;
     } catch (error) {
       console.error(
@@ -92,25 +107,27 @@ class AuthService {
 
   async signInWithGoogle() {
     try {
-      const redirectTo =
-        AuthSession.makeRedirectUri({
-          scheme: 'truckguard',
-          path: 'login-callback',
-        });
+      const redirectUri =
+        getGoogleRedirectUri();
 
       console.log(
-        'GOOGLE REDIRECT:',
-        redirectTo
+        'GOOGLE_REDIRECT_URI',
+        redirectUri,
       );
 
       const { data, error } =
         await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo,
+            redirectTo: redirectUri,
             skipBrowserRedirect: true,
           },
         });
+
+      console.log(
+        'GOOGLE_AUTH_URL',
+        data?.url,
+      );
 
       if (error) {
         throw error;
@@ -125,7 +142,7 @@ class AuthService {
       const result =
         await WebBrowser.openAuthSessionAsync(
           data.url,
-          redirectTo
+          redirectUri,
         );
 
       console.log(
@@ -165,6 +182,13 @@ class AuthService {
           throw sessionError;
         }
 
+        console.log(
+          'AUTH_SESSION_AFTER_GOOGLE',
+          sessionData.session,
+        );
+
+        await logSupabaseUser();
+
         return sessionData;
       }
 
@@ -193,8 +217,15 @@ class AuthService {
 
       console.log(
         'GOOGLE LOGIN OK:',
-        sessionData.user?.email
+        sessionData.user?.email,
       );
+
+      console.log(
+        'AUTH_SESSION_AFTER_GOOGLE',
+        sessionData.session,
+      );
+
+      await logSupabaseUser();
 
       return sessionData;
     } catch (error) {

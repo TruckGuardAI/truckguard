@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useTranslation } from 'react-i18next';
+
 import { voiceAssistantService } from '../services/voiceAssistant.service';
 
-import type { ProcessCommandResult } from '../types/voice.types';
-
-import type { VoiceUiStatus } from '../types/voice.types';
+import type {
+  ProcessCommandResult,
+  VoiceUiStatus,
+} from '../types/voice.types';
 
 type UseVoiceAssistantOptions = {
   onCommandResult?: (result: ProcessCommandResult) => void;
@@ -21,10 +24,11 @@ export function useVoiceAssistant(
   options: UseVoiceAssistantOptions = {},
 ): UseVoiceAssistantResult {
   const { onCommandResult } = options;
+  const { t } = useTranslation();
 
   const [status, setStatus] = useState<VoiceUiStatus>({
     state: 'idle',
-    message: 'Toque para falar',
+    message: t('voice.tapToSpeak'),
   });
 
   const [isListening, setIsListening] = useState(false);

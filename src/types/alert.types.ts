@@ -2,6 +2,8 @@ export type AlertType =
   | 'fuel'
   | 'pallet'
   | 'full_attack'
+  | 'cargo_theft'
+  | 'cabin_attack'
   | 'obstacle'
   | 'mechanic'
   | 'rest'
@@ -13,6 +15,16 @@ export type Alert = {
   title: string;
 
   type: AlertType;
+
+  severity?: string | null;
+
+  notificationPriority?:
+    | 'CRITICAL'
+    | 'HIGH'
+    | 'NORMAL'
+    | null;
+
+  notificationSound?: string | null;
 
   latitude: number;
   longitude: number;
@@ -33,6 +45,8 @@ export type Alert = {
   createdAt?: string;
 
   expiresAt?: string;
+
+  userId?: string | null;
 };
 
 export type AlertAlongRoute = Alert & {
@@ -45,10 +59,23 @@ export type CreateAlertInput = {
 
   type?: AlertType;
 
+  description?: string;
+
+  location_text?: string;
+
+  city?: string;
+
+  region?: string;
+
+  country?: string;
+
   latitude: number;
   longitude: number;
 
   locationName?: string;
+
+  /** Quando true, não dispara notificações push (alertas manuais). */
+  skipPush?: boolean;
 };
 
 export type AlertsConnectionStatus =

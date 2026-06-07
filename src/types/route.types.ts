@@ -7,11 +7,22 @@ export type RouteEndpoint = RouteCoordinate & {
   name: string;
 };
 
+export type RouteSource =
+  | 'openroute'
+  | 'fallback';
+
 export type CalculatedRoute = {
   coordinates: RouteCoordinate[];
   distanceKm: number;
   origin: RouteEndpoint;
   destination: RouteEndpoint;
+  source?: RouteSource;
+};
+
+export type PlannerRouteResult = {
+  route: CalculatedRoute;
+  source: RouteSource;
+  warningKey?: string;
 };
 
 export const DEFAULT_TRIP: {

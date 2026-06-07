@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 
+import type { UserTrustLevel } from './reputation.types';
+
 export type AlertSeverity = 'info' | 'watch' | 'urgent' | 'critical';
 
 export type CommunityAlertType =
@@ -8,6 +10,11 @@ export type CommunityAlertType =
   | 'cargo_alert'
   | 'driver_sos'
   | 'security_check_in';
+
+export type AlertTrustLevel =
+  | 'low'
+  | 'medium'
+  | 'high';
 
 export interface CommunityAlertItem {
   id: string;
@@ -18,4 +25,11 @@ export interface CommunityAlertItem {
   timeAgo: string;
   severity: AlertSeverity;
   icon: keyof typeof Ionicons.glyphMap;
+  positiveVotes: number;
+  negativeVotes: number;
+  trustScore: number;
+  trustLevel: AlertTrustLevel;
+  creatorUserId?: string | null;
+  creatorReputationScore?: number;
+  creatorTrustLevel?: UserTrustLevel;
 }

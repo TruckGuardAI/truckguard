@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.truckguard.app",
       "infoPlist": {
         "NSSpeechRecognitionUsageDescription": "O TruckGuard precisa de reconhecimento de voz para o assistente.",
-        "NSMicrophoneUsageDescription": "O TruckGuard precisa do microfone para comandos de voz hands-free."
+        "NSMicrophoneUsageDescription": "O TruckGuard precisa do microfone para comandos de voz hands-free.",
+        "NSPhotoLibraryUsageDescription": "O TruckGuard precisa de acesso às fotos para alterar o avatar."
       }
     },
 
@@ -33,7 +34,11 @@
         "android.permission.BLUETOOTH",
         "android.permission.BLUETOOTH_ADMIN",
         "android.permission.BLUETOOTH_SCAN",
-        "android.permission.BLUETOOTH_CONNECT"
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
 
@@ -72,7 +77,23 @@
         }
       ],
 
-      "expo-secure-store"
+      "expo-secure-store",
+
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O TruckGuard precisa de acesso às fotos para alterar o avatar."
+        }
+      ],
+
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#E6F4FE",
+          "sounds": []
+        }
+      ]
     ],
 
     "experiments": {

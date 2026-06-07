@@ -1,408 +1,595 @@
-import React,{
-    useState
-    } from 'react';
-    
-    import{
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    ScrollView
-    } from 'react-native';
-    
-    import{
-    MaterialIcons
-    } from '@expo/vector-icons';
-    
-    import{
-    securityService
-    } from '../../src/services/security.service';
-    
-    export default function SecurityScreen(){
-    
-    const[
+import React, {
+
+  useMemo,
+
+  useState,
+
+} from 'react';
+
+
+
+import { useTranslation } from 'react-i18next';
+
+
+
+import {
+
+  View,
+
+  Text,
+
+  StyleSheet,
+
+  TouchableOpacity,
+
+  ScrollView,
+
+} from 'react-native';
+
+
+
+import TruxafeHeader from '../../src/components/branding/TruxafeHeader';
+
+
+
+import {
+
+  MaterialIcons,
+
+} from '@expo/vector-icons';
+
+
+
+import { useTheme } from '../../src/context/ThemeContext';
+
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import {
+
+  securityService,
+
+} from '../../src/services/security.service';
+
+
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
+
+
+
+function createStyles(theme: AppThemeTokens) {
+
+  const { colors, components } = theme;
+
+
+
+  return StyleSheet.create({
+
+    container: {
+
+      flex: 1,
+
+      backgroundColor: colors.background,
+
+    },
+
+
+
+    scrollContent: {
+
+      paddingHorizontal: 20,
+
+      paddingBottom: 100,
+
+    },
+
+
+
+    section: {
+
+      fontSize: 22,
+
+      fontWeight: 'bold',
+
+      color: colors.textPrimary,
+
+      marginBottom: 15,
+
+    },
+
+
+
+    card: {
+
+      backgroundColor: colors.card,
+
+      padding: 20,
+
+      borderRadius: 20,
+
+      marginBottom: 20,
+
+    },
+
+
+
+    label: {
+
+      color: colors.textSecondary,
+
+    },
+
+
+
+    status: {
+
+      marginTop: 10,
+
+      fontSize: 18,
+
+      fontWeight: 'bold',
+
+    },
+
+
+
+    sensorCard: {
+
+      backgroundColor: colors.card,
+
+      padding: 20,
+
+      borderRadius: 20,
+
+      marginBottom: 15,
+
+      flexDirection: 'row',
+
+      justifyContent: 'space-between',
+
+    },
+
+
+
+    sensorName: {
+
+      color: colors.textPrimary,
+
+      fontSize: 16,
+
+    },
+
+
+
+    button: {
+
+      height: 60,
+
+      backgroundColor: components.buttonPrimaryBg,
+
+      borderRadius: 20,
+
+      justifyContent: 'center',
+
+      alignItems: 'center',
+
+      flexDirection: 'row',
+
+      marginTop: 20,
+
+    },
+
+
+
+    resetButton: {
+
+      height: 60,
+
+      backgroundColor: colors.danger,
+
+      borderRadius: 20,
+
+      justifyContent: 'center',
+
+      alignItems: 'center',
+
+      marginTop: 15,
+
+      marginBottom: 100,
+
+    },
+
+
+
+    buttonText: {
+
+      marginLeft: 10,
+
+      color: components.buttonPrimaryText,
+
+      fontWeight: 'bold',
+
+      fontSize: 16,
+
+    },
+
+  });
+
+}
+
+
+
+export default function SecurityScreen() {
+
+  const { t } = useTranslation();
+
+  const { theme } = useTheme();
+
+  const styles = useThemedStyles(createStyles);
+
+
+
+  const [
+
     connected,
-    setConnected
-    ]=useState(false);
-    
-    const[
+
+    setConnected,
+
+  ] = useState(false);
+
+
+
+  const [
+
     state,
-    setState
-    ]=useState(
-    securityService.getState()
-    );
-    
-    function connectESP(){
-    
+
+    setState,
+
+  ] = useState(
+
+    securityService.getState(),
+
+  );
+
+
+
+  const sensors = useMemo(
+
+    () => [
+
+      {
+
+        nameKey: 'tankRight' as const,
+
+        key: 'tankRight' as const,
+
+        status: !state.tankRight,
+
+      },
+
+      {
+
+        nameKey: 'tankLeft' as const,
+
+        key: 'tankLeft' as const,
+
+        status: !state.tankLeft,
+
+      },
+
+      {
+
+        nameKey: 'palletRight' as const,
+
+        key: 'palletRight' as const,
+
+        status: !state.palletRight,
+
+      },
+
+      {
+
+        nameKey: 'palletLeft' as const,
+
+        key: 'palletLeft' as const,
+
+        status: !state.palletLeft,
+
+      },
+
+    ],
+
+    [state.tankRight, state.tankLeft, state.palletRight, state.palletLeft],
+
+  );
+
+
+
+  function connectESP() {
+
     setConnected(
-    !connected
+
+      !connected,
+
     );
-    
-    }
-    
-    async function triggerSensor(
-    
+
+  }
+
+
+
+  async function triggerSensor(
+
     sensor:
-    'tankRight'|
-    'tankLeft'|
-    'palletRight'|
-    'palletLeft'
-    
-    ){
-    
+
+    | 'tankRight'
+
+    | 'tankLeft'
+
+    | 'palletRight'
+
+    | 'palletLeft',
+
+  ) {
+
     await securityService
-    .simulateEvent(
-    sensor
-    );
-    
+
+      .simulateEvent(
+
+        sensor,
+
+      );
+
+
+
     setState({
-    
-    ...securityService
-    .getState()
-    
+
+      ...securityService
+
+        .getState(),
+
     });
-    
-    }
-    
-    function resetSystem(){
-    
+
+  }
+
+
+
+  function resetSystem() {
+
     securityService
-    .reset();
-    
+
+      .reset();
+
+
+
     setState({
-    
-    ...securityService
-    .getState()
-    
+
+      ...securityService
+
+        .getState(),
+
     });
-    
-    }
-    
-    const sensors=[
-    
-    {
-    name:'Tanque Direito',
-    key:'tankRight',
-    status:!state.tankRight
-    },
-    
-    {
-    name:'Tanque Esquerdo',
-    key:'tankLeft',
-    status:!state.tankLeft
-    },
-    
-    {
-    name:'Palete Direito',
-    key:'palletRight',
-    status:!state.palletRight
-    },
-    
-    {
-    name:'Palete Esquerdo',
-    key:'palletLeft',
-    status:!state.palletLeft
-    }
-    
-    ];
-    
-    return(
-    
-    <ScrollView
-    style={styles.container}
-    showsVerticalScrollIndicator={false}
-    >
-    
-    <Text style={styles.title}>
-    TruckGuard Security
-    </Text>
-    
-    <View style={styles.card}>
-    
-    <Text style={styles.label}>
-    ESP32
-    </Text>
-    
-    <Text
-    style={[
-    
-    styles.status,
-    
-    {
-    
-    color:
-    
-    connected
-    
-    ?
-    
-    '#22c55e'
-    
-    :
-    
-    '#ef4444'
-    
-    }
-    
-    ]}
-    
-    >
-    
-    {
-    
-    connected
-    
-    ?
-    
-    '🟢 Conectado'
-    
-    :
-    
-    '🔴 Desconectado'
-    
-    }
-    
-    </Text>
-    
-    </View>
-    
-    <Text style={styles.section}>
-    Sensores
-    </Text>
-    
-    {
-    
-    sensors.map(
-    (item,index)=>(
-    
-    <TouchableOpacity
-    
-    key={index}
-    
-    style={[
-    
-    styles.sensorCard,
-    
-    !item.status&&{
-    
-    borderWidth:2,
-    borderColor:'#ef4444'
-    
-    }
-    
-    ]}
-    
-    onPress={()=>triggerSensor(
-    item.key as any
-    )}
-    
-    >
-    
-    <Text
-    style={styles.sensorName}
-    >
-    
-    {item.name}
-    
-    </Text>
-    
-    <Text
-    style={{
-    
-    color:
-    
-    item.status
-    
-    ?
-    
-    '#22c55e'
-    
-    :
-    
-    '#ef4444'
-    
-    }}
-    
-    >
-    
-    {
-    
-    item.status
-    
-    ?
-    
-    '🟢 Seguro'
-    
-    :
-    
-    '🚨 ALERTA'
-    
-    }
-    
-    </Text>
-    
-    </TouchableOpacity>
-    
-    )
-    
-    )
-    
-    }
-    
-    <View style={styles.card}>
-    
-    <Text style={styles.label}>
-    Sirene
-    </Text>
-    
-    <Text style={styles.status}>
-    
-    {
-    
-    state.alarm
-    
-    ?
-    
-    '🚨 ATIVA'
-    
-    :
-    
-    '⚪ Offline'
-    
-    }
-    
-    </Text>
-    
-    </View>
-    
-    <TouchableOpacity
-    style={styles.button}
-    onPress={connectESP}
-    >
-    
-    <MaterialIcons
-    name="bluetooth"
-    size={25}
-    color="#fff"
-    />
-    
-    <Text style={styles.buttonText}>
-    
-    {
-    
-    connected
-    
-    ?
-    
-    'Desconectar'
-    
-    :
-    
-    'Procurar ESP32'
-    
-    }
-    
-    </Text>
-    
-    </TouchableOpacity>
-    
-    <TouchableOpacity
-    style={styles.resetButton}
-    onPress={resetSystem}
-    >
-    
-    <Text style={styles.buttonText}>
-    Reset Sistema
-    </Text>
-    
-    </TouchableOpacity>
-    
+
+  }
+
+
+
+  return (
+
+    <View style={styles.container}>
+
+      <TruxafeHeader
+        title={t('security.title')}
+        subtitle={t('security.realtimeMonitoring')}
+      />
+
+      <ScrollView
+
+        showsVerticalScrollIndicator={false}
+
+        contentContainerStyle={styles.scrollContent}
+
+      >
+
+      <View style={styles.card}>
+
+        <Text style={styles.label}>
+
+          {t('security.esp32')}
+
+        </Text>
+
+
+
+        <Text
+
+          style={[
+
+            styles.status,
+
+            {
+
+              color: connected
+
+                ? theme.colors.success
+
+                : theme.colors.danger,
+
+            },
+
+          ]}
+
+        >
+
+          {connected
+
+            ? t('security.connected')
+
+            : t('security.disconnected')}
+
+        </Text>
+
+      </View>
+
+
+
+      <Text style={styles.section}>
+
+        {t('security.sensors')}
+
+      </Text>
+
+
+
+      {sensors.map(
+
+        (item, index) => (
+
+          <TouchableOpacity
+
+            key={index}
+
+            style={[
+
+              styles.sensorCard,
+
+              !item.status && {
+
+                borderWidth: 2,
+
+                borderColor: theme.colors.danger,
+
+              },
+
+            ]}
+
+            onPress={() => triggerSensor(
+
+              item.key,
+
+            )}
+
+          >
+
+            <Text
+
+              style={styles.sensorName}
+
+            >
+
+              {t(`security.${item.nameKey}`)}
+
+            </Text>
+
+
+
+            <Text
+
+              style={{
+
+                color: item.status
+
+                  ? theme.colors.success
+
+                  : theme.colors.danger,
+
+              }}
+
+            >
+
+              {item.status
+
+                ? t('security.safe')
+
+                : t('security.alarm')}
+
+            </Text>
+
+          </TouchableOpacity>
+
+        ),
+
+      )}
+
+
+
+      <View style={styles.card}>
+
+        <Text style={styles.label}>
+
+          {t('security.siren')}
+
+        </Text>
+
+
+
+        <Text style={styles.status}>
+
+          {state.alarm
+
+            ? t('security.sirenActive')
+
+            : t('security.offline')}
+
+        </Text>
+
+      </View>
+
+
+
+      <TouchableOpacity
+
+        style={styles.button}
+
+        onPress={connectESP}
+
+      >
+
+        <MaterialIcons
+
+          name="bluetooth"
+
+          size={25}
+
+          color={theme.components.buttonPrimaryText}
+
+        />
+
+
+
+        <Text style={styles.buttonText}>
+
+          {connected
+
+            ? t('security.disconnect')
+
+            : t('security.searchEsp32')}
+
+        </Text>
+
+      </TouchableOpacity>
+
+
+
+      <TouchableOpacity
+
+        style={styles.resetButton}
+
+        onPress={resetSystem}
+
+      >
+
+        <Text style={styles.buttonText}>
+
+          {t('security.resetSystem')}
+
+        </Text>
+
+      </TouchableOpacity>
+
     </ScrollView>
-    
-    );
-    
-    }
-    
-    const styles=
-    StyleSheet.create({
-    
-    container:{
-    flex:1,
-    padding:20,
-    backgroundColor:'#020617'
-    },
-    
-    title:{
-    fontSize:32,
-    fontWeight:'bold',
-    color:'#fff',
-    marginTop:50,
-    marginBottom:25
-    },
-    
-    section:{
-    fontSize:22,
-    fontWeight:'bold',
-    color:'#fff',
-    marginBottom:15
-    },
-    
-    card:{
-    backgroundColor:'#0f172a',
-    padding:20,
-    borderRadius:20,
-    marginBottom:20
-    },
-    
-    label:{
-    color:'#94a3b8'
-    },
-    
-    status:{
-    marginTop:10,
-    fontSize:18,
-    fontWeight:'bold'
-    },
-    
-    sensorCard:{
-    backgroundColor:'#0f172a',
-    padding:20,
-    borderRadius:20,
-    marginBottom:15,
-    flexDirection:'row',
-    justifyContent:'space-between'
-    },
-    
-    sensorName:{
-    color:'#fff',
-    fontSize:16
-    },
-    
-    button:{
-    height:60,
-    backgroundColor:'#f97316',
-    borderRadius:20,
-    justifyContent:'center',
-    alignItems:'center',
-    flexDirection:'row',
-    marginTop:20
-    },
-    
-    resetButton:{
-    height:60,
-    backgroundColor:'#dc2626',
-    borderRadius:20,
-    justifyContent:'center',
-    alignItems:'center',
-    marginTop:15,
-    marginBottom:100
-    },
-    
-    buttonText:{
-    marginLeft:10,
-    color:'#fff',
-    fontWeight:'bold',
-    fontSize:16
-    }
-    
-    });
+
+    </View>
+
+  );
+
+}
+

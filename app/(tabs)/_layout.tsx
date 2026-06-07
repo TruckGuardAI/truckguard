@@ -1,12 +1,58 @@
 import React from 'react';
 
-import { Tabs } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+
+import {
+  ActivityIndicator,
+  View,
+} from 'react-native';
+
+import {
+  Redirect,
+  Tabs,
+} from 'expo-router';
 
 import {
   MaterialIcons,
 } from '@expo/vector-icons';
 
+import { useAuth } from '../../src/context/AuthContext';
+import { useTheme } from '../../src/context/ThemeContext';
+
 export default function TabsLayout(): React.ReactElement {
+  const { t } = useTranslation();
+
+  const {
+    session,
+    loading,
+  } = useAuth();
+
+  const { theme } = useTheme();
+
+  if (loading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor:
+            theme.navigation.background,
+        }}
+      >
+        <ActivityIndicator
+          color={theme.tabBar.active}
+          size="large"
+        />
+      </View>
+    );
+  }
+
+  if (!session) {
+    return (
+      <Redirect href="/login" />
+    );
+  }
 
   return (
 
@@ -17,19 +63,23 @@ export default function TabsLayout(): React.ReactElement {
 
         tabBarStyle: {
 
-          backgroundColor: '#0f172a',
+          backgroundColor:
+            theme.tabBar.background,
 
-          borderTopWidth: 0,
+          borderTopColor:
+            theme.tabBar.border,
+
+          borderTopWidth: 1,
 
           height: 65,
 
         },
 
         tabBarActiveTintColor:
-          '#f97316',
+          theme.tabBar.active,
 
         tabBarInactiveTintColor:
-          '#94a3b8',
+          theme.tabBar.inactive,
 
       }}
     >
@@ -38,7 +88,7 @@ export default function TabsLayout(): React.ReactElement {
         name="index"
         options={{
 
-          title: 'Home',
+          title: t('tabs.home'),
 
           tabBarIcon: ({
             color,
@@ -60,7 +110,7 @@ export default function TabsLayout(): React.ReactElement {
         name="radar"
         options={{
 
-          title: 'Radar',
+          title: t('tabs.alerts'),
 
           tabBarIcon: ({
             color,
@@ -82,7 +132,7 @@ export default function TabsLayout(): React.ReactElement {
         name="community"
         options={{
 
-          title: 'Comunidade',
+          title: t('tabs.community'),
 
           tabBarIcon: ({
             color,
@@ -104,7 +154,7 @@ export default function TabsLayout(): React.ReactElement {
         name="security"
         options={{
 
-          title: 'Segurança',
+          title: t('tabs.security'),
 
           tabBarIcon: ({
             color,
@@ -126,7 +176,7 @@ export default function TabsLayout(): React.ReactElement {
         name="history"
         options={{
 
-          title: 'Histórico',
+          title: t('tabs.history'),
 
           tabBarIcon: ({
             color,
@@ -145,10 +195,32 @@ export default function TabsLayout(): React.ReactElement {
       />
 
       <Tabs.Screen
+        name="intelligence"
+        options={{
+
+          title: t('tabs.intelligence'),
+
+          tabBarIcon: ({
+            color,
+            size,
+          }) => (
+
+            <MaterialIcons
+              name="insights"
+              size={size}
+              color={color}
+            />
+
+          ),
+
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
 
-          title: 'Perfil',
+          title: t('tabs.profile'),
 
           tabBarIcon: ({
             color,
@@ -198,6 +270,13 @@ export default function TabsLayout(): React.ReactElement {
 
       <Tabs.Screen
         name="testlab"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="bluetooth-example"
         options={{
           href: null,
         }}

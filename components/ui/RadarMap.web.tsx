@@ -1,10 +1,18 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 
 import {
   View,
   Text,
   StyleSheet,
 } from 'react-native';
+
+import { useTranslation } from 'react-i18next';
+
+import { useTheme } from '../../src/context/ThemeContext';
+
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
 
 type AlertItem = {
   id: number;
@@ -21,11 +29,69 @@ type Props = {
   alerts?: AlertItem[];
 };
 
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    container: {
+      width: '100%',
+      height: 380,
+      borderRadius: 24,
+      overflow: 'hidden',
+      marginBottom: 24,
+      backgroundColor: colors.background,
+    },
+
+    map: {
+      width: '100%',
+      height: '100%',
+      borderWidth: 0,
+    } as any,
+
+    overlay: {
+      position: 'absolute',
+      top: 16,
+      left: 16,
+      backgroundColor: colors.overlay,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 14,
+    },
+
+    overlayText: {
+      color: colors.textPrimary,
+      fontWeight: '700',
+      fontSize: 15,
+    },
+
+    errorContainer: {
+      width: '100%',
+      height: 300,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+      borderRadius: 24,
+    },
+
+    errorText: {
+      color: colors.danger,
+      fontSize: 20,
+      fontWeight: '700',
+    },
+  });
+}
+
 export default function RadarMap({
   latitude,
   longitude,
   alerts = [],
 }: Props) {
+  const { t } = useTranslation();
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
+  const locationLabel = t('radar.yourLocation');
+
   const validLatitude =
     typeof latitude === 'number' &&
     !Number.isNaN(latitude);
@@ -34,36 +100,17 @@ export default function RadarMap({
     typeof longitude === 'number' &&
     !Number.isNaN(longitude);
 
-  if (!validLatitude || !validLongitude) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>
-          Localização inválida
-        </Text>
-      </View>
-    );
-  }
-
-  const markers = alerts
-    .filter(
-      (alert) =>
-        typeof alert.latitude ===
-          'number' &&
-        typeof alert.longitude ===
-          'number',
-    )
-    .map((alert) => {
-      let color = 'red';
-
-      if (alert.severity === 'medium') {
-        color = 'yellow';
-      }
-
-      if (alert.severity === 'low') {
-        color = 'green';
-      }
-
-      return `
+  const markers = useMemo(() => {
+    return alerts
+      .filter(
+        (alert) =>
+          typeof alert.latitude ===
+            'number' &&
+          typeof alert.longitude ===
+            'number',
+      )
+      .map((alert) => {
+        return `
         L.marker([
           ${alert.latitude},
           ${alert.longitude}
@@ -73,10 +120,15 @@ export default function RadarMap({
           "<b>${alert.title}</b><br/>${alert.description}"
         );
       `;
-    })
-    .join('\n');
+      })
+      .join('\n');
+  }, [alerts]);
 
-  const html = `
+  const html = useMemo(() => {
+    const mapBackground =
+      theme.colors.background;
+
+    return `
 <!DOCTYPE html>
 <html>
 <head>
@@ -98,7 +150,7 @@ body,
 }
 
 .leaflet-container {
-  background: #020617;
+  background: ${mapBackground};
 }
 </style>
 </head>
@@ -127,13 +179,30 @@ L.marker([
   ${longitude}
 ])
 .addTo(map)
-.bindPopup('Sua localização');
+.bindPopup('${locationLabel.replace(/'/g, "\\'")}');
 
 ${markers}
 </script>
 </body>
 </html>
 `;
+  }, [
+    latitude,
+    longitude,
+    markers,
+    theme.colors.background,
+    locationLabel,
+  ]);
+
+  if (!validLatitude || !validLongitude) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>
+          {t('radar.invalidLocation')}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -144,59 +213,9 @@ ${markers}
 
       <View style={styles.overlay}>
         <Text style={styles.overlayText}>
-          Localização em tempo real
+          {t('radar.realtimeLocation')}
         </Text>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-    height: 380,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginBottom: 24,
-    backgroundColor: '#020617',
-  },
-
-  map: {
-    width: '100%',
-    height: '100%',
-    borderWidth: 0,
-  } as any,
-
-  overlay: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    backgroundColor:
-      'rgba(0,0,0,0.75)',
-
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-  },
-
-  overlayText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-
-  errorContainer: {
-    width: '100%',
-    height: 300,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#020617',
-    borderRadius: 24,
-  },
-
-  errorText: {
-    color: '#ff4d4d',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-});

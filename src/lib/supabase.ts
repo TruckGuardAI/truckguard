@@ -10,17 +10,10 @@ const supabaseUrl =
 const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
-if (!supabaseUrl) {
-  throw new Error(
-    'EXPO_PUBLIC_SUPABASE_URL não definida'
-  );
-}
-
-if (!supabaseAnonKey) {
-  throw new Error(
-    'EXPO_PUBLIC_SUPABASE_ANON_KEY não definida'
-  );
-}
+console.log('SUPABASE_PROJECT', {
+  url: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  keyExists: !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+});
 
 export const supabase = createClient(
   supabaseUrl,
@@ -70,4 +63,12 @@ export function isSupabaseConfigured(): boolean {
     supabaseUrl &&
       supabaseAnonKey
   );
+}
+
+export async function logSupabaseUser(): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  console.log('SUPABASE_USER', user?.id);
 }

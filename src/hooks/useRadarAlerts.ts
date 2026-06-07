@@ -66,7 +66,6 @@ export function useRadarAlerts(
     return () => {
       mounted = false;
       unsubscribe();
-      locationService.stopWatching();
     };
   }, []);
 

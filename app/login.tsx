@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 
+import { useTranslation } from 'react-i18next';
+
 import {
   View,
   Text,
@@ -13,12 +15,94 @@ import { router } from 'expo-router';
 
 import GradientBackground from '../components/ui/GradientBackground';
 
-import { authService } from '../src/services/auth.service';
+import { TruxafeLogo } from '../src/components/branding/TruxafeLogo';
+import GoogleIcon from '../src/components/icons/GoogleIcon';
 
+import { authService } from '../src/services/auth.service';
 import { useAuth } from '../src/context/AuthContext';
+import { useTheme } from '../src/context/ThemeContext';
+import { useThemedStyles } from '../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../src/theme/palettes';
+
+function createStyles(theme: AppThemeTokens) {
+  const { colors, components } = theme;
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 28,
+      paddingVertical: 24,
+    },
+
+    brandBlock: {
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+
+    input: {
+      backgroundColor: components.inputBackground,
+      color: components.inputText,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
+      borderRadius: 14,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: components.inputBorder,
+    },
+
+    loginButton: {
+      backgroundColor: components.buttonPrimaryBg,
+      paddingVertical: 18,
+      borderRadius: 16,
+      alignItems: 'center',
+      marginBottom: 18,
+    },
+
+    loginButtonText: {
+      color: components.buttonPrimaryText,
+      fontWeight: '800',
+      fontSize: 16,
+    },
+
+    googleButton: {
+      backgroundColor: components.buttonSecondaryBg,
+      paddingVertical: 18,
+      borderRadius: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+
+    googleButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+
+    googleButtonText: {
+      color: components.buttonSecondaryText,
+      fontWeight: '700',
+    },
+
+    registerText: {
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: 26,
+    },
+
+    disabledButton: {
+      opacity: 0.7,
+    },
+  });
+}
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -26,7 +110,7 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (user) {
-      router.replace('/(tabs)/radar');
+      router.replace('/(tabs)');
     }
   }, [user]);
 
@@ -38,8 +122,8 @@ export default function LoginScreen() {
     try {
       if (!email.trim() || !password.trim()) {
         Alert.alert(
-          'Erro',
-          'Preencha email e senha'
+          t('common.error'),
+          t('auth.fillEmailPassword'),
         );
 
         return;
@@ -59,20 +143,21 @@ export default function LoginScreen() {
       const result =
         await authService.signInWithPassword(
           normalizedEmail,
-          password
+          password,
         );
 
       console.log('====================');
       console.log('LOGIN SUCCESS');
       console.log(result);
       console.log('====================');
+
     } catch (error: unknown) {
       console.log('====================');
       console.log('LOGIN ERROR');
       console.log(error);
       console.log('====================');
 
-      let message = 'Falha no login';
+      let message = t('auth.loginFailed');
 
       if (
         error &&
@@ -83,8 +168,8 @@ export default function LoginScreen() {
       }
 
       Alert.alert(
-        'Erro',
-        message
+        t('common.error'),
+        message,
       );
     } finally {
       setLoading(false);
@@ -103,18 +188,25 @@ export default function LoginScreen() {
       console.log('GOOGLE LOGIN START');
       console.log('====================');
 
-      await authService.signInWithGoogle();
+      const authResult =
+        await authService.signInWithGoogle();
+
+      console.log(
+        'AUTH_SESSION_AFTER_GOOGLE',
+        authResult?.session ?? null,
+      );
 
       console.log('====================');
       console.log('GOOGLE LOGIN SUCCESS');
       console.log('====================');
+
     } catch (error: unknown) {
       console.log('====================');
       console.log('GOOGLE LOGIN ERROR');
       console.log(error);
       console.log('====================');
 
-      let message = 'Falha no login Google';
+      let message = t('auth.googleLoginFailed');
 
       if (
         error &&
@@ -125,8 +217,8 @@ export default function LoginScreen() {
       }
 
       Alert.alert(
-        'Erro',
-        message
+        t('common.error'),
+        message,
       );
     } finally {
       setLoading(false);
@@ -136,17 +228,16 @@ export default function LoginScreen() {
   return (
     <GradientBackground>
       <View style={styles.container}>
-        <Text style={styles.logo}>
-          TRUXAFE
-        </Text>
-
-        <Text style={styles.title}>
-          Entrar
-        </Text>
+        <View style={styles.brandBlock}>
+          <TruxafeLogo
+            size="login"
+            centered
+          />
+        </View>
 
         <TextInput
-          placeholder="Email"
-          placeholderTextColor="#94a3b8"
+          placeholder={t('auth.email')}
+          placeholderTextColor={theme.colors.textSecondary}
           autoCapitalize="none"
           keyboardType="email-address"
           autoCorrect={false}
@@ -156,8 +247,8 @@ export default function LoginScreen() {
         />
 
         <TextInput
-          placeholder="Senha"
-          placeholderTextColor="#94a3b8"
+          placeholder={t('auth.password')}
+          placeholderTextColor={theme.colors.textSecondary}
           secureTextEntry
           autoCorrect={false}
           value={password}
@@ -175,8 +266,8 @@ export default function LoginScreen() {
         >
           <Text style={styles.loginButtonText}>
             {loading
-              ? 'Entrando...'
-              : 'Entrar'}
+              ? t('auth.loggingIn')
+              : t('auth.login')}
           </Text>
         </TouchableOpacity>
 
@@ -188,9 +279,12 @@ export default function LoginScreen() {
           onPress={handleGoogleLogin}
           disabled={loading}
         >
-          <Text style={styles.googleButtonText}>
-            Continuar com Google
-          </Text>
+          <View style={styles.googleButtonContent}>
+            <GoogleIcon size={20} />
+            <Text style={styles.googleButtonText}>
+              {t('auth.google')}
+            </Text>
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -199,80 +293,10 @@ export default function LoginScreen() {
           }
         >
           <Text style={styles.registerText}>
-            Não possui conta? Criar conta
+            {t('auth.noAccount')}
           </Text>
         </TouchableOpacity>
       </View>
     </GradientBackground>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-  },
-
-  logo: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: '#ffffff',
-    marginBottom: 20,
-    letterSpacing: 4,
-  },
-
-  title: {
-    color: '#ffffff',
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 40,
-  },
-
-  input: {
-    backgroundColor: '#0f172a',
-    color: '#ffffff',
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-  },
-
-  loginButton: {
-    backgroundColor: '#f97316',
-    paddingVertical: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-
-  loginButtonText: {
-    color: '#ffffff',
-    fontWeight: '800',
-    fontSize: 16,
-  },
-
-  googleButton: {
-    backgroundColor: '#ffffff',
-    paddingVertical: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-
-  googleButtonText: {
-    color: '#111827',
-    fontWeight: '700',
-  },
-
-  registerText: {
-    color: '#94a3b8',
-    textAlign: 'center',
-    marginTop: 26,
-  },
-
-  disabledButton: {
-    opacity: 0.7,
-  },
-});

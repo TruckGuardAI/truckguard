@@ -1,19 +1,27 @@
+import type { TFunction } from 'i18next';
+
 import { locationService } from '../services/location.service';
 
 import type { Alert } from '../types/alert.types';
 
 export type RadiusFilterKm = 5 | 10 | 25 | 50 | null;
 
-export const RADIUS_FILTER_OPTIONS: {
+export type RadiusFilterOption = {
   label: string;
   value: RadiusFilterKm;
-}[] = [
-  { label: '5km', value: 5 },
-  { label: '10km', value: 10 },
-  { label: '25km', value: 25 },
-  { label: '50km', value: 50 },
-  { label: 'Todos', value: null },
-];
+};
+
+export function getRadiusFilterOptions(
+  t: TFunction,
+): RadiusFilterOption[] {
+  return [
+    { label: t('radar.radius.5km'), value: 5 },
+    { label: t('radar.radius.10km'), value: 10 },
+    { label: t('radar.radius.25km'), value: 25 },
+    { label: t('radar.radius.50km'), value: 50 },
+    { label: t('radar.radius.all'), value: null },
+  ];
+}
 
 export function enrichAlertsWithDistance(
   alerts: Alert[],

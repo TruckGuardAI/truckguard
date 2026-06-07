@@ -11,6 +11,8 @@
  * NÃO usar em produção
  */
 
+import { Buffer } from 'buffer';
+
 import { BluetoothProtocolParser } from '../services/bluetooth/BluetoothProtocolParser';
 import { BluetoothEventProcessor } from '../services/bluetooth/BluetoothEventProcessor';
 import type { ESP32BluetoothPayload, ESP32EventCode } from '../types/bluetooth.types';
@@ -66,7 +68,6 @@ const MOCK_PAYLOADS = {
  * Converte objeto para base64 (simula ESP32)
  */
 function toBase64(data: object | string): string {
-  const { Buffer } = require('buffer');
   const jsonString = typeof data === 'string' ? data : JSON.stringify(data);
   return Buffer.from(jsonString, 'utf-8').toString('base64');
 }

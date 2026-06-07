@@ -1,4 +1,9 @@
-import type { VoiceCommandDefinition, VoiceCommandId } from '../types/voice.types';
+import i18n from '../i18n';
+
+import type {
+  VoiceCommandDefinition,
+  VoiceCommandId,
+} from '../types/voice.types';
 
 const WAKE_WORD = 'truckguard';
 
@@ -7,7 +12,7 @@ export const VOICE_COMMANDS: VoiceCommandDefinition[] = [
     id: 'sos',
     phrases: ['sos', 'pedido de ajuda', 'emergencia', 'emergência'],
     alertType: 'sos',
-    title: 'SOS — Comando de voz',
+    title: 'sos',
   },
   {
     id: 'fuel',
@@ -19,13 +24,13 @@ export const VOICE_COMMANDS: VoiceCommandDefinition[] = [
       'tanque',
     ],
     alertType: 'fuel',
-    title: 'Furto combustível — Comando de voz',
+    title: 'fuel',
   },
   {
     id: 'cargo',
     phrases: ['carga', 'furto carga', 'palete', 'paletes', 'caixa'],
     alertType: 'pallet',
-    title: 'Furto carga — Comando de voz',
+    title: 'cargo',
   },
   {
     id: 'mechanic',
@@ -38,12 +43,12 @@ export const VOICE_COMMANDS: VoiceCommandDefinition[] = [
       'assistencia mecanica',
     ],
     alertType: 'mechanic',
-    title: 'Assistência mecânica — Comando de voz',
+    title: 'mechanic',
   },
   {
     id: 'cancel',
     phrases: ['cancelar', 'parar', 'stop', 'sair'],
-    title: 'Cancelar escuta',
+    title: 'cancel',
   },
 ];
 
@@ -110,4 +115,14 @@ export function getCommandDefinition(
   commandId: VoiceCommandId,
 ): VoiceCommandDefinition | undefined {
   return VOICE_COMMANDS.find((item) => item.id === commandId);
+}
+
+export function getCommandTitle(
+  commandId: VoiceCommandId,
+): string {
+  if (commandId === 'unknown') {
+    return '';
+  }
+
+  return i18n.t(`voice.commands.${commandId}`);
 }

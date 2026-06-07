@@ -43,7 +43,7 @@ export type AreaRiskResult = {
 };
 
 export type RiskEngineContext = {
-  nearbyAlerts: Array<{
+  nearbyAlerts: {
     type: AlertType;
     distance: number;
     confirmations: number;
@@ -51,14 +51,14 @@ export type RiskEngineContext = {
     createdAt?: string;
     latitude: number;
     longitude: number;
-  }>;
-  history24h: Array<{
+  }[];
+  history24h: {
     type: AlertType;
     confirmations: number;
     createdAt?: string;
     latitude: number;
     longitude: number;
-  }>;
+  }[];
   currentTime?: Date;
   userLatitude: number;
   userLongitude: number;

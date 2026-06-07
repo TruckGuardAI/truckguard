@@ -9,61 +9,145 @@ import {
   Platform,
 } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
+
 import { useVoiceAssistant } from '../../src/hooks/useVoiceAssistant';
 
 import { useToast } from '../../src/context/ToastContext';
+import { useTheme } from '../../src/context/ThemeContext';
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
 
 import type { ProcessCommandResult } from '../../src/types/voice.types';
 
-function statusColor(state: string): string {
+function statusColor(
+  state: string,
+  colors: AppThemeTokens['colors'],
+): string {
   switch (state) {
     case 'listening':
-      return '#38bdf8';
+      return colors.primary;
     case 'success_sos':
-      return '#ef4444';
+      return colors.danger;
     case 'success_alert':
-      return '#22c55e';
+      return colors.success;
     case 'unrecognized':
-      return '#f97316';
+      return colors.warning;
     case 'cooldown':
-      return '#94a3b8';
+      return colors.textMuted;
     case 'offline':
-      return '#f97316';
+      return colors.warning;
     case 'error':
-      return '#f87171';
+      return colors.danger;
     default:
-      return '#64748b';
+      return colors.textMuted;
   }
 }
 
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    wrap: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 14,
+      marginBottom: 12,
+      gap: 14,
+      ...Platform.select({
+        web: {
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+        },
+        default: {
+          elevation: 6,
+        },
+      }),
+    },
+
+    button: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.surfaceSecondary,
+      borderWidth: 2,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+
+    buttonActive: {
+      backgroundColor: colors.surface,
+    },
+
+    buttonPressed: {
+      opacity: 0.88,
+      transform: [{ scale: 0.96 }],
+    },
+
+    micIcon: {
+      fontSize: 26,
+    },
+
+    textBlock: {
+      flex: 1,
+    },
+
+    label: {
+      color: colors.textPrimary,
+      fontSize: 14,
+      fontWeight: '800',
+      marginBottom: 4,
+    },
+
+    message: {
+      fontSize: 13,
+      fontWeight: '700',
+      marginBottom: 4,
+    },
+
+    hint: {
+      color: colors.textMuted,
+      fontSize: 11,
+      lineHeight: 15,
+    },
+  });
+}
+
 export default function VoiceButton(): React.ReactElement {
+  const { t } = useTranslation();
   const { showToast, showMessage } = useToast();
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
 
   const handleCommandResult = useCallback(
     (result: ProcessCommandResult) => {
       if (result.kind === 'success') {
         if (result.commandId === 'sos') {
-          showMessage('✓ SOS enviado por voz');
+          showMessage(t('voice.sosSent'));
         } else {
           showToast('created');
         }
 
         if (result.offline) {
-          showMessage('○ Guardado offline — sincroniza ao voltar online');
+          showMessage(t('voice.savedOffline'));
         }
 
         return;
       }
 
       if (result.kind === 'unrecognized') {
-        showMessage('⚠️ Comando não reconhecido');
+        showMessage(t('voice.unrecognized'));
       }
 
       if (result.kind === 'error') {
         showMessage(result.message);
       }
     },
-    [showToast, showMessage],
+    [showToast, showMessage, t],
   );
 
   const { status, isListening, toggleListening } =
@@ -71,7 +155,7 @@ export default function VoiceButton(): React.ReactElement {
       onCommandResult: handleCommandResult,
     });
 
-  const borderColor = statusColor(status.state);
+  const borderColor = statusColor(status.state, theme.colors);
   const isBusy =
     status.state === 'processing' ||
     status.state === 'listening';
@@ -90,89 +174,21 @@ export default function VoiceButton(): React.ReactElement {
         ]}
       >
         {isBusy ? (
-          <ActivityIndicator color="#fff" size="small" />
+          <ActivityIndicator color={theme.components.buttonPrimaryText} size="small" />
         ) : (
           <Text style={styles.micIcon}>🎤</Text>
         )}
       </Pressable>
 
       <View style={styles.textBlock}>
-        <Text style={styles.label}>Assistente de voz</Text>
+        <Text style={styles.label}>{t('voice.assistant')}</Text>
         <Text style={[styles.message, { color: borderColor }]}>
           {status.message}
         </Text>
         <Text style={styles.hint}>
-          Ex.: "TruckGuard SOS" · "TruckGuard combustível"
+          {t('voice.hint')}
         </Text>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#1e293b',
-    padding: 14,
-    marginBottom: 12,
-    gap: 14,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
-      },
-      default: {
-        elevation: 6,
-      },
-    }),
-  },
-
-  button: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#1e293b',
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  buttonActive: {
-    backgroundColor: '#172554',
-  },
-
-  buttonPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.96 }],
-  },
-
-  micIcon: {
-    fontSize: 26,
-  },
-
-  textBlock: {
-    flex: 1,
-  },
-
-  label: {
-    color: '#f8fafc',
-    fontSize: 14,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-
-  message: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-
-  hint: {
-    color: '#64748b',
-    fontSize: 11,
-    lineHeight: 15,
-  },
-});

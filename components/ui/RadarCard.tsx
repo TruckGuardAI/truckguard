@@ -5,6 +5,11 @@ import {
   StyleSheet,
 } from 'react-native';
 
+import { useTheme } from '../../src/context/ThemeContext';
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
+
 type RadarCardProps = {
   title: string;
   description: string;
@@ -12,28 +17,88 @@ type RadarCardProps = {
   severity?: 'low' | 'medium' | 'high';
 };
 
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    card: {
+      width: '100%',
+      backgroundColor: colors.card,
+      borderRadius: 18,
+      padding: 18,
+      marginBottom: 16,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    indicator: {
+      width: 12,
+      height: 12,
+      borderRadius: 999,
+      marginTop: 6,
+      marginRight: 14,
+    },
+
+    content: {
+      flex: 1,
+    },
+
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+
+    title: {
+      color: colors.textPrimary,
+      fontSize: 18,
+      fontWeight: '700',
+      flex: 1,
+      marginRight: 12,
+    },
+
+    distance: {
+      color: colors.textMuted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+
+    description: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      lineHeight: 22,
+    },
+  });
+}
+
 export default function RadarCard({
   title,
   description,
   distance,
   severity = 'low',
 }: RadarCardProps) {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   function getSeverityColor() {
     try {
       switch (severity) {
         case 'high':
-          return '#ef4444';
+          return theme.colors.danger;
 
         case 'medium':
-          return '#f59e0b';
+          return theme.colors.warning;
 
         case 'low':
         default:
-          return '#22c55e';
+          return theme.colors.success;
       }
     } catch (error) {
       console.error('Erro severity:', error);
-      return '#22c55e';
+      return theme.colors.success;
     }
   }
 
@@ -66,56 +131,3 @@ export default function RadarCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    width: '100%',
-    backgroundColor: '#0f172a',
-    borderRadius: 18,
-    padding: 18,
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
-  },
-
-  indicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 999,
-    marginTop: 6,
-    marginRight: 14,
-  },
-
-  content: {
-    flex: 1,
-  },
-
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-
-  title: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-    flex: 1,
-    marginRight: 12,
-  },
-
-  distance: {
-    color: '#94a3b8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  description: {
-    color: '#cbd5e1',
-    fontSize: 14,
-    lineHeight: 22,
-  },
-});

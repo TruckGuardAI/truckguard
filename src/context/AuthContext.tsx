@@ -10,7 +10,11 @@ import type {
   User,
 } from '@supabase/supabase-js';
 
-import { supabase } from '../lib/supabase';
+import { logSupabaseUser, supabase } from '../lib/supabase';
+
+import {
+  locationSyncService,
+} from '../services/locationSync.service';
 
 type AuthContextData = {
 
@@ -80,18 +84,32 @@ export function AuthProvider({
         }
 
         console.log(
-          'SESSION:',
-          data.session
+          'AUTH_SESSION',
+          data.session,
+        );
+
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+
+        console.log(
+          'AUTH_USER',
+          authUser,
         );
 
         setSession(
-          data.session
+          data.session,
         );
 
         setUser(
-          data.session?.user ??
-          null
+          authUser ??
+            data.session?.user ??
+            null,
         );
+
+        if (authUser) {
+          await logSupabaseUser();
+        }
 
       } catch (error) {
 
@@ -123,23 +141,45 @@ export function AuthProvider({
         ) => {
 
           console.log(
-            'AUTH EVENT:',
-            event
+            'AUTH_STATE_CHANGE',
+            {
+              event,
+              session: currentSession,
+            },
           );
 
           console.log(
-            'AUTH SESSION:',
-            currentSession
+            'AUTH_SESSION',
+            currentSession,
+          );
+
+          console.log(
+            'AUTH_USER',
+            currentSession?.user ?? null,
           );
 
           setSession(
-            currentSession
+            currentSession,
           );
 
           setUser(
             currentSession?.user ??
-            null
+              null,
           );
+
+          if (
+            event === 'SIGNED_IN' &&
+            currentSession?.user
+          ) {
+            void logSupabaseUser();
+
+            void locationSyncService.syncFromCurrentLocation(
+              {
+                source: 'login',
+                force: true,
+              },
+            );
+          }
 
         }
       );

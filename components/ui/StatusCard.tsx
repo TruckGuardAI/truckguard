@@ -5,24 +5,69 @@ import {
   StyleSheet,
 } from 'react-native';
 
+import { useTheme } from '../../src/context/ThemeContext';
+import { useThemedStyles } from '../../src/hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../../src/theme/palettes';
+
 type StatusCardProps = {
   title: string;
   value: string;
   color?: string;
 };
 
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    card: {
+      flex: 1,
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 20,
+      marginRight: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    indicator: {
+      width: 12,
+      height: 12,
+      borderRadius: 999,
+      marginBottom: 18,
+    },
+
+    value: {
+      color: colors.textPrimary,
+      fontSize: 28,
+      fontWeight: '800',
+      marginBottom: 6,
+    },
+
+    title: {
+      color: colors.textMuted,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+  });
+}
+
 export default function StatusCard({
   title,
   value,
-  color = '#2563eb',
+  color,
 }: StatusCardProps) {
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const indicatorColor = color ?? theme.colors.primary;
+
   return (
     <View style={styles.card}>
       <View
         style={[
           styles.indicator,
           {
-            backgroundColor: color,
+            backgroundColor: indicatorColor,
           },
         ]}
       />
@@ -37,35 +82,3 @@ export default function StatusCard({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    padding: 20,
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.04)',
-  },
-
-  indicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 999,
-    marginBottom: 18,
-  },
-
-  value: {
-    color: '#ffffff',
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-
-  title: {
-    color: '#94a3b8',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-});

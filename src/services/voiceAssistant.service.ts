@@ -2,22 +2,22 @@ import { Platform } from 'react-native';
 
 import NetInfo from '@react-native-community/netinfo';
 
-import type { Alert, AlertType } from '../types/alert.types';
-
 import type {
   ProcessCommandResult,
   VoiceUiState,
   VoiceUiStatus,
 } from '../types/voice.types';
 
+import i18n from '../i18n';
+
 import {
   getCommandDefinition,
+  getCommandTitle,
   parseVoiceCommand,
 } from '../utils/voiceCommand.parser';
 
 import { alertsApiService } from './alertsApi.service';
 
-import { historyService } from './history.service';
 
 import { locationService } from './location.service';
 
@@ -32,20 +32,6 @@ const TRANSCRIPT_DEBOUNCE_MS = 450;
 type StateListener = (status: VoiceUiStatus) => void;
 
 type CommandListener = (result: ProcessCommandResult) => void;
-
-function mapHistoryType(
-  alertType: AlertType,
-): 'fuel' | 'pallet' | 'full_attack' {
-  if (alertType === 'fuel') {
-    return 'fuel';
-  }
-
-  if (alertType === 'pallet') {
-    return 'pallet';
-  }
-
-  return 'full_attack';
-}
 
 function buildUiStatus(
   state: VoiceUiState,
@@ -74,7 +60,12 @@ class VoiceAssistantService {
 
   subscribeState(listener: StateListener): () => void {
     this.stateListeners.add(listener);
-    listener(buildUiStatus('idle', 'Toque para falar'));
+    listener(
+      buildUiStatus(
+        'idle',
+        i18n.t('voice.tapToSpeak'),
+      ),
+    );
 
     return () => {
       this.stateListeners.delete(listener);
@@ -124,7 +115,9 @@ class VoiceAssistantService {
       this.notifyState(
         buildUiStatus(
           'listening',
-          `🎤 Escutando... "${transcript.slice(0, 40)}"`,
+          i18n.t('voice.listeningPartial', {
+            text: transcript.slice(0, 40),
+          }),
         ),
       );
     }
@@ -187,7 +180,9 @@ class VoiceAssistantService {
       this.notifyState(
         buildUiStatus(
           'cooldown',
-          `Aguarde ${Math.ceil(remaining / 1000)}s`,
+          i18n.t('voice.cooldown', {
+            seconds: Math.ceil(remaining / 1000),
+          }),
         ),
       );
 
@@ -207,7 +202,7 @@ class VoiceAssistantService {
         this.notifyState(
           buildUiStatus(
             'error',
-            'Microfone indisponível neste dispositivo',
+            i18n.t('voice.micUnavailable'),
           ),
         );
         return;
@@ -229,7 +224,7 @@ class VoiceAssistantService {
       this.notifyState(
         buildUiStatus(
           'listening',
-          '🎤 Escutando... Diga "TruckGuard SOS"',
+          i18n.t('voice.listening'),
         ),
       );
 
@@ -257,7 +252,7 @@ class VoiceAssistantService {
           'error',
           error instanceof Error
             ? error.message
-            : 'Erro ao iniciar escuta',
+            : i18n.t('voice.startError'),
         ),
       );
     }
@@ -283,7 +278,9 @@ class VoiceAssistantService {
       this.notifyState(
         buildUiStatus(
           'cooldown',
-          `Aguarde ${Math.ceil(remaining / 1000)}s`,
+          i18n.t('voice.cooldown', {
+            seconds: Math.ceil(remaining / 1000),
+          }),
         ),
       );
 
@@ -291,7 +288,10 @@ class VoiceAssistantService {
     }
 
     this.notifyState(
-      buildUiStatus('idle', 'Toque para falar'),
+      buildUiStatus(
+        'idle',
+        i18n.t('voice.tapToSpeak'),
+      ),
     );
   }
 
@@ -309,7 +309,10 @@ class VoiceAssistantService {
     }
 
     this.notifyState(
-      buildUiStatus('processing', 'A processar comando...'),
+      buildUiStatus(
+        'processing',
+        i18n.t('voice.processing'),
+      ),
     );
 
     const commandId = parseVoiceCommand(transcript);
@@ -318,7 +321,7 @@ class VoiceAssistantService {
       this.notifyState(
         buildUiStatus(
           'unrecognized',
-          '⚠️ Comando não reconhecido',
+          i18n.t('voice.unrecognized'),
         ),
       );
 
@@ -330,7 +333,10 @@ class VoiceAssistantService {
 
     if (commandId === 'cancel') {
       this.notifyState(
-        buildUiStatus('idle', 'Escuta cancelada'),
+        buildUiStatus(
+          'idle',
+          i18n.t('voice.cancelled'),
+        ),
       );
 
       return { kind: 'cancel' };
@@ -355,20 +361,10 @@ class VoiceAssistantService {
         await locationService.getCurrentLocation();
 
       const alert = await alertsApiService.createAlert({
-        title: definition.title,
+        title: getCommandTitle(commandId),
         type: definition.alertType,
         latitude: location.latitude,
         longitude: location.longitude,
-        locationName: 'GPS comando de voz',
-      });
-
-      historyService.add({
-        type: mapHistoryType(definition.alertType),
-        sensor: definition.title,
-        time: new Date().toLocaleTimeString(),
-        siren: commandId === 'sos',
-        communitySent: true,
-        location: `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
       });
 
       this.lastCommandAt = Date.now();
@@ -378,8 +374,10 @@ class VoiceAssistantService {
 
       const uiMessage =
         commandId === 'sos'
-          ? '🔴 SOS enviado'
-          : `✓ Alerta ${definition.alertType} criado`;
+          ? i18n.t('voice.sosSentStatus')
+          : i18n.t('voice.alertCreated', {
+              type: definition.alertType,
+            });
 
       this.notifyState(buildUiStatus(uiState, uiMessage));
 
@@ -394,7 +392,7 @@ class VoiceAssistantService {
       const message =
         error instanceof Error
           ? error.message
-          : 'Erro ao criar alerta';
+          : i18n.t('voice.createAlertError');
 
       this.notifyState(
         buildUiStatus('error', message),

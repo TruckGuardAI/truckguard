@@ -2,6 +2,8 @@ import React, {
   useState,
 } from 'react';
 
+import { useTranslation } from 'react-i18next';
+
 import {
   Text,
   StyleSheet,
@@ -16,47 +18,133 @@ import {
   router,
 } from 'expo-router';
 
-  import {
-    supabase,
-  } from '../src/lib/supabase';
-
 import {
   useAuth,
 } from '../src/context/AuthContext';
+
+import { useTheme } from '../src/context/ThemeContext';
+import { useThemedStyles } from '../src/hooks/useThemedStyles';
+
+import {
+  alertsApiService,
+} from '../src/services/alertsApi.service';
 
 import {
   locationService,
 } from '../src/services/location.service';
 
-const alertTypes = [
+import type { AppThemeTokens } from '../src/theme/palettes';
 
-  '🚨 Tentativa de roubo',
+const ALERT_TYPE_KEYS = [
+  'theft',
+  'suspicious',
+  'accident',
+  'dangerousRoad',
+  'safeArea',
+  'mechanic',
+  'help',
+] as const;
 
-  '👤 Atividade suspeita',
+type AlertTypeKey = typeof ALERT_TYPE_KEYS[number];
 
-  '🚧 Acidente',
+function createStyles(theme: AppThemeTokens) {
+  const { colors, components } = theme;
 
-  '⚠️ Estrada perigosa',
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
 
-  '🛌 Área segura',
+    content: {
+      padding: 20,
+      paddingTop: 70,
+      paddingBottom: 120,
+    },
 
-  '🔧 Oficina',
+    title: {
+      fontSize: 30,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+      marginBottom: 10,
+    },
 
-  '🆘 Pedido de ajuda',
+    subtitle: {
+      color: colors.textMuted,
+      marginBottom: 20,
+      fontSize: 15,
+    },
 
-];
+    card: {
+      backgroundColor: colors.card,
+      padding: 18,
+      borderRadius: 20,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    selected: {
+      borderWidth: 2,
+      borderColor: colors.primary,
+      backgroundColor: colors.surfaceSecondary,
+    },
+
+    text: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+
+    input: {
+      backgroundColor: colors.card,
+      marginTop: 20,
+      padding: 15,
+      borderRadius: 20,
+      color: colors.textPrimary,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    textArea: {
+      height: 120,
+      textAlignVertical: 'top',
+    },
+
+    button: {
+      backgroundColor: components.buttonPrimaryBg,
+      padding: 18,
+      borderRadius: 20,
+      marginTop: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 58,
+    },
+
+    buttonText: {
+      color: components.buttonPrimaryText,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      fontSize: 16,
+    },
+  });
+}
 
 export default function CreateAlert():
 React.ReactElement {
+  const { t } = useTranslation();
 
   const {
     user,
   } = useAuth();
 
+  const { theme } = useTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [
     selected,
     setSelected,
-  ] = useState('');
+  ] = useState<AlertTypeKey | ''>('');
 
   const [
     description,
@@ -68,63 +156,43 @@ React.ReactElement {
     setLoading,
   ] = useState(false);
 
-  /*
-   * SALVAR ALERTA
-   */
+  function getTypeLabel(key: AlertTypeKey): string {
+    return t(`createAlert.types.${key}`);
+  }
+
   async function saveAlert() {
-
     try {
-
-      /*
-       * LOGIN
-       */
       if (!user) {
-
         Alert.alert(
-          'Erro',
-          'Faça login primeiro',
+          t('common.error'),
+          t('createAlert.loginFirst'),
         );
 
         return;
-
       }
 
-      /*
-       * VALIDAÇÃO
-       */
       if (!selected) {
-
         Alert.alert(
-          'Atenção',
-          'Escolha um alerta',
+          t('common.attention'),
+          t('createAlert.chooseAlert'),
         );
 
         return;
-
       }
 
       setLoading(true);
 
-      /*
-       * GPS REAL
-       */
       const location =
-
         await locationService
           .getCurrentLocation();
 
-      /*
-       * GPS FALHOU
-       */
       if (!location) {
-
         Alert.alert(
-          'Erro',
-          'GPS não disponível',
+          t('common.error'),
+          t('createAlert.gpsUnavailable'),
         );
 
         return;
-
       }
 
       console.log(
@@ -132,361 +200,126 @@ React.ReactElement {
         location,
       );
 
-      /*
-       * INSERT SUPABASE
-       */
-      const {
-        error,
-      } =
+      const alert =
+        await alertsApiService.createAlert({
+          title: getTypeLabel(selected),
+          latitude:
+            location.latitude,
+          longitude:
+            location.longitude,
+        });
 
-        await supabase
-          .from('alerts')
-          .insert({
-
-            title:
-              selected,
-
-            description,
-
-            latitude:
-              location.latitude,
-
-            longitude:
-              location.longitude,
-
-            risk_level:
-              'medium',
-
-            user_id:
-              user.id,
-
-          });
-
-      if (error) {
-
-        throw error;
-
+      if (!alert) {
+        throw new Error(
+          t('createAlert.createFailed'),
+        );
       }
 
       Alert.alert(
-        'Sucesso',
-        'Alerta criado',
+        t('common.success'),
+        t('createAlert.created'),
       );
 
-      /*
-       * LIMPA FORM
-       */
       setDescription('');
-
       setSelected('');
-
-      /*
-       * VOLTA RADAR
-       */
       router.back();
-
-    } catch (error: any) {
-
+    } catch (error: unknown) {
       console.log(
         'Erro criar alerta:',
         error,
       );
 
+      const fallback = t('createAlert.createFailed');
+      let message = fallback;
+
+      if (
+        error &&
+        typeof error === 'object' &&
+        'message' in error
+      ) {
+        message = String(error.message);
+      }
+
       Alert.alert(
-
-        'Erro',
-
-        error?.message ||
-
-        'Falha ao criar alerta',
-
+        t('common.error'),
+        message,
       );
-
     } finally {
-
       setLoading(false);
-
     }
-
   }
 
   return (
-
     <ScrollView
-
       style={styles.container}
-
       contentContainerStyle={
         styles.content
       }
-
       showsVerticalScrollIndicator={
         false
       }
-
     >
-
       <Text style={styles.title}>
-        Novo alerta
+        {t('createAlert.title')}
       </Text>
 
       <Text style={styles.subtitle}>
-        Selecione o tipo
+        {t('createAlert.selectType')}
       </Text>
 
-      {
-
-        alertTypes.map((item) => (
-
-          <TouchableOpacity
-
-            key={item}
-
-            style={[
-
-              styles.card,
-
-              selected === item &&
-
-              styles.selected,
-
-            ]}
-
-            onPress={() => {
-
-              setSelected(item);
-
-            }}
-
-            activeOpacity={0.8}
-
-          >
-
-            <Text style={styles.text}>
-              {item}
-            </Text>
-
-          </TouchableOpacity>
-
-        ))
-
-      }
+      {ALERT_TYPE_KEYS.map((key) => (
+        <TouchableOpacity
+          key={key}
+          style={[
+            styles.card,
+            selected === key &&
+            styles.selected,
+          ]}
+          onPress={() => {
+            setSelected(key);
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.text}>
+            {getTypeLabel(key)}
+          </Text>
+        </TouchableOpacity>
+      ))}
 
       <TextInput
-
-        placeholder="Descrição opcional"
-
-        placeholderTextColor="#64748b"
-
+        placeholder={t('createAlert.descriptionPlaceholder')}
+        placeholderTextColor={theme.colors.textMuted}
         style={[
-
           styles.input,
-
           styles.textArea,
-
         ]}
-
         multiline
-
         value={description}
-
         onChangeText={
           setDescription
         }
-
       />
 
       <TouchableOpacity
-
         style={styles.button}
-
         onPress={saveAlert}
-
         disabled={loading}
-
         activeOpacity={0.8}
-
       >
-
-        {
-
-          loading
-
-            ? (
-
-              <ActivityIndicator
-                color="#ffffff"
-              />
-
-            )
-
-            : (
-
-              <Text
-                style={
-                  styles.buttonText
-                }
-              >
-
-                Salvar alerta
-
-              </Text>
-
-            )
-
-        }
-
+        {loading ? (
+          <ActivityIndicator
+            color={theme.components.buttonPrimaryText}
+          />
+        ) : (
+          <Text
+            style={
+              styles.buttonText
+            }
+          >
+            {t('createAlert.save')}
+          </Text>
+        )}
       </TouchableOpacity>
-
     </ScrollView>
-
   );
-
 }
-
-const styles =
-
-StyleSheet.create({
-
-  container: {
-
-    flex: 1,
-
-    backgroundColor:
-      '#020617',
-
-  },
-
-  content: {
-
-    padding: 20,
-
-    paddingTop: 70,
-
-    paddingBottom: 120,
-
-  },
-
-  title: {
-
-    fontSize: 30,
-
-    fontWeight: 'bold',
-
-    color: '#fff',
-
-    marginBottom: 10,
-
-  },
-
-  subtitle: {
-
-    color: '#94a3b8',
-
-    marginBottom: 20,
-
-    fontSize: 15,
-
-  },
-
-  card: {
-
-    backgroundColor:
-      '#0f172a',
-
-    padding: 18,
-
-    borderRadius: 20,
-
-    marginBottom: 12,
-
-    borderWidth: 1,
-
-    borderColor:
-      '#1e293b',
-
-  },
-
-  selected: {
-
-    borderWidth: 2,
-
-    borderColor:
-      '#f97316',
-
-    backgroundColor:
-      '#1e293b',
-
-  },
-
-  text: {
-
-    color: '#fff',
-
-    fontSize: 15,
-
-    fontWeight: '600',
-
-  },
-
-  input: {
-
-    backgroundColor:
-      '#0f172a',
-
-    marginTop: 20,
-
-    padding: 15,
-
-    borderRadius: 20,
-
-    color: '#fff',
-
-    borderWidth: 1,
-
-    borderColor:
-      '#1e293b',
-
-  },
-
-  textArea: {
-
-    height: 120,
-
-    textAlignVertical:
-      'top',
-
-  },
-
-  button: {
-
-    backgroundColor:
-      '#f97316',
-
-    padding: 18,
-
-    borderRadius: 20,
-
-    marginTop: 24,
-
-    alignItems: 'center',
-
-    justifyContent: 'center',
-
-    minHeight: 58,
-
-  },
-
-  buttonText: {
-
-    color: '#fff',
-
-    fontWeight: 'bold',
-
-    textAlign: 'center',
-
-    fontSize: 16,
-
-  },
-
-});

@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -15,7 +16,13 @@ import {
   Platform,
 } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useThemedStyles } from '../hooks/useThemedStyles';
+
+import type { AppThemeTokens } from '../theme/palettes';
 
 import type { ToastKind } from '../services/alertsApi.service';
 
@@ -29,15 +36,54 @@ type ToastContextValue = {
   showMessage: (text: string) => void;
 };
 
-const TOAST_LABELS: Record<ToastKind, string> = {
-  created: '✓ Alerta criado',
-  confirmed: '✓ Alerta confirmado',
-  resolved: '✓ Alerta resolvido',
+const TOAST_KEYS: Record<ToastKind, string> = {
+  created: 'toast.alertCreated',
+  confirmed: 'toast.alertConfirmed',
+  resolved: 'toast.alertResolved',
 };
 
 const ToastContext = createContext<ToastContextValue | null>(
   null,
 );
+
+function createStyles(theme: AppThemeTokens) {
+  const { colors } = theme;
+
+  return StyleSheet.create({
+    toast: {
+      position: 'absolute',
+      left: 20,
+      right: 20,
+      zIndex: 9999,
+      alignItems: 'center',
+    },
+
+    toastInner: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      borderWidth: 1,
+      borderColor: colors.success,
+      minWidth: 220,
+      ...Platform.select({
+        web: {
+          boxShadow: `0 10px 30px ${colors.shadow}`,
+        },
+        default: {
+          elevation: 12,
+        },
+      }),
+    },
+
+    toastText: {
+      color: colors.textPrimary,
+      fontSize: 15,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+  });
+}
 
 export function ToastProvider({
   children,
@@ -45,11 +91,19 @@ export function ToastProvider({
   children: React.ReactNode;
 }): React.ReactElement {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const styles = useThemedStyles(createStyles);
   const [toast, setToast] = useState<ToastMessage | null>(
     null,
   );
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-24)).current;
+  const opacity = useMemo(
+    () => new Animated.Value(0),
+    [],
+  );
+  const translateY = useMemo(
+    () => new Animated.Value(-24),
+    [],
+  );
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -108,9 +162,9 @@ export function ToastProvider({
 
   const showToast = useCallback(
     (kind: ToastKind): void => {
-      showMessage(TOAST_LABELS[kind]);
+      showMessage(t(TOAST_KEYS[kind]));
     },
-    [showMessage],
+    [showMessage, t],
   );
 
   useEffect(() => {
@@ -159,38 +213,3 @@ export function useToast(): ToastContextValue {
 
   return context;
 }
-
-const styles = StyleSheet.create({
-  toast: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    zIndex: 9999,
-    alignItems: 'center',
-  },
-
-  toastInner: {
-    backgroundColor: '#0f172a',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: '#22c55e',
-    minWidth: 220,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
-      },
-      default: {
-        elevation: 12,
-      },
-    }),
-  },
-
-  toastText: {
-    color: '#f8fafc',
-    fontSize: 15,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-});

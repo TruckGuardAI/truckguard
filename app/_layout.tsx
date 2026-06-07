@@ -1,12 +1,23 @@
-import React, {
-  useEffect,
-} from 'react';
+import React from 'react';
 
 import { Stack } from 'expo-router';
 
 import {
   SafeAreaProvider,
 } from 'react-native-safe-area-context';
+
+import '../src/i18n';
+
+import {
+  LanguageProvider,
+} from '../src/context/LanguageContext';
+
+import {
+  ThemeProvider,
+  useTheme,
+} from '../src/context/ThemeContext';
+
+import { ThemeRoot } from '../src/components/theme/ThemeRoot';
 
 import {
   ToastProvider,
@@ -17,26 +28,65 @@ import {
 } from '../src/context/AuthContext';
 
 import {
-  notificationsService,
-} from '../src/services/notifications.service';
+  LocationSyncProvider,
+} from '../src/context/LocationSyncContext';
+
+import {
+  NotificationPreferencesProvider,
+} from '../src/context/NotificationPreferencesContext';
 
 export default function RootLayout() {
-
-  useEffect(() => {
-    void notificationsService.initialize();
-  }, []);
-
   return (
 
     <SafeAreaProvider>
 
-      <AuthProvider>
+      <LanguageProvider>
 
-        <ToastProvider>
+      <ThemeProvider>
 
+        <ThemeRoot>
+
+          <AuthProvider>
+
+            <LocationSyncProvider>
+
+            <NotificationPreferencesProvider>
+
+              <ToastProvider>
+
+                <ThemedStack />
+
+              </ToastProvider>
+
+            </NotificationPreferencesProvider>
+
+            </LocationSyncProvider>
+
+          </AuthProvider>
+
+        </ThemeRoot>
+
+      </ThemeProvider>
+
+      </LanguageProvider>
+
+    </SafeAreaProvider>
+
+  );
+
+}
+
+function ThemedStack() {
+  const { theme } = useTheme();
+
+  return (
           <Stack
             screenOptions={{
               headerShown: false,
+              contentStyle: {
+                backgroundColor:
+                  theme.navigation.background,
+              },
             }}
           >
 
@@ -53,6 +103,10 @@ export default function RootLayout() {
             />
 
             <Stack.Screen
+              name="login-callback"
+            />
+
+            <Stack.Screen
               name="register"
             />
 
@@ -65,17 +119,17 @@ export default function RootLayout() {
             />
 
             <Stack.Screen
+              name="report-alert"
+            />
+
+            <Stack.Screen
+              name="sos"
+            />
+
+            <Stack.Screen
               name="sensors"
             />
 
           </Stack>
-
-        </ToastProvider>
-
-      </AuthProvider>
-
-    </SafeAreaProvider>
-
   );
-
 }
